@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('vite-ui-theme');
+          var theme = saved || 'dark';
+          if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+    <title>Abdihakim Hassan Mohamud (Eng Abdihakim Hassan) | Software Engineering Student @ JUST</title>
+    <meta
+      name="description"
+      content="Portfolio of Abdihakim Hassan Mohamud (Eng Abdihakim Hassan), Aspiring Software Engineering Student at Jamhuriya University (JUST) in Mogadishu, Somalia."
+    />
+    <meta property="og:title" content="Abdihakim Hassan Mohamud — Developer Portfolio" />
+    <meta
+      property="og:description"
+      content="Aspiring Software Engineering Student at Jamhuriya University in Mogadishu, Somalia. Building modern web applications with HTML, CSS, JavaScript, React, and Node.js."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-[#f3f4f6] dark:bg-[#0c0d11] text-zinc-900 dark:text-zinc-100 antialiased min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

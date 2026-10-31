@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$'); }
+
+    // Testimonials
+    match /testimonials/{testimonialId} {
+      allow read: if true;
+      allow create: if true; // Public can add testimonials
+      allow update, delete: if isSignedIn(); // Admin only
+    }
+
+    // Contact Messages
+    match /contactMessages/{messageId} {
+      allow create: if true; // Public can send messages
+      allow read, update, delete: if isSignedIn(); // Admin only
+    }
+
+    // Skills
+    match /skills/{skillId} {
+      allow read: if true;
+      allow write: if isSignedIn(); // Admin only
+    }
+
+    // Projects
+    match /projects/{projectId} {
+      allow read: if true;
+      allow write: if isSignedIn(); // Admin only
+    }
+
+    // Blog Posts
+    match /blogPosts/{blogId} {
+      allow read: if true;
+      allow write: if isSignedIn(); // Admin only
+    }
+  }
+}

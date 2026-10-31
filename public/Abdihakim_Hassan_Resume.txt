@@ -1,0 +1,72 @@
+================================================================================
+                               ABDIHAKIM HASSAN
+================================================================================
+Mogadishu, Somalia | Phone: +252 61 399 3775 | Email: ccakiincasan@gmail.com
+GitHub: https://github.com/Abdihakim-Hassan
+LinkedIn: https://www.linkedin.com/in/abdihakim-hassan-094502392
+================================================================================
+
+CAREER OBJECTIVE / PROFESSIONAL SUMMARY
+--------------------------------------------------------------------------------
+Motivated Software Engineering student enrolled in the Computer Application 
+(Software Engineering) program at Jamhuriya University of Science and Technology 
+(JUST) in Mogadishu, Somalia. Building solid foundational skills in HTML5, CSS3, 
+and JavaScript, with practical focus on responsive web development, modern user 
+interfaces, and Elements of Artificial Intelligence. Dedicated to writing clean 
+code, mastering software engineering fundamentals, and collaborating using Git 
+and GitHub. Seeking a Software Engineering Internship or Junior Web Developer 
+opportunity to apply web development skills, contribute to practical projects, 
+and learn under senior engineering mentorship.
+
+EDUCATION
+--------------------------------------------------------------------------------
+Jamhuriya University of Science and Technology (JUST)      Mogadishu, Somalia
+Program: Computer Application (Software Engineering)           2026 – Present
+* Relevant Coursework: Software Engineering Principles, Web Technologies,
+  Computer Applications, Programming Fundamentals, Problem Solving.
+* Active participant in technical workshops, laboratory practicals, and peer 
+  coding discussions.
+
+TECHNICAL SKILLS & COMPETENCIES
+--------------------------------------------------------------------------------
+* Web & Programming Languages:  HTML5, CSS3, JavaScript (ES6+)
+* Frontend Development:         Responsive Web Design, CSS Flexbox & Grid, DOM Manipulation
+* AI & Emerging Technologies:   Elements of AI (Core Principles & Concepts)
+* Version Control & Tools:      Git, GitHub, Visual Studio Code
+* Productivity Skills:          Touch Typing (Fast & Accurate Keyboard Typing)
+
+PRACTICAL SOFTWARE PROJECTS
+--------------------------------------------------------------------------------
+Personal Developer Portfolio Website
+Technologies: HTML5, CSS3, JavaScript, React, Tailwind CSS
+GitHub: https://github.com/Abdihakim-Hassan
+* Developed and deployed an accessible, high-performance personal developer 
+  portfolio featuring bilingual support (Somali & English) and local persistence.
+* Built an interactive developer command-line interface (CLI) to demonstrate 
+  DOM interaction, state handling, and modular component organization.
+* Integrated an ATS-optimized, printable resume viewer with instant plain-text 
+  export and clipboard copying.
+
+Interactive Web Applications & DOM Scripting Projects
+Technologies: HTML5, CSS3, JavaScript
+GitHub: https://github.com/Abdihakim-Hassan
+* Created modular frontend projects demonstrating client-side interactivity, 
+  event listeners, and dynamic DOM manipulation.
+* Implemented structured semantic layouts styled with modern CSS, ensuring full 
+  cross-browser compatibility and mobile responsiveness.
+* Maintained clean, organized code repositories on GitHub using standard Git 
+  branching and commit workflows.
+
+Responsive Web Layouts & Landing Pages
+Technologies: HTML5, CSS3, Responsive Design
+GitHub: https://github.com/Abdihakim-Hassan
+* Designed and coded modern web landing pages emphasizing visual hierarchy, 
+  typography, and fluid responsive grid layouts for desktop and mobile devices.
+* Adhered to modern web accessibility standards, clean indentation, and semantic 
+  HTML tags.
+
+LANGUAGES
+--------------------------------------------------------------------------------
+* Somali:  Native proficiency
+* English: Professional working proficiency
+================================================================================

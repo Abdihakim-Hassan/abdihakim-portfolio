@@ -1,0 +1,171 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  font-family: 'Plus Jakarta Sans', 'Geist Variable', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+  --bg-page: #f3f4f6;
+  --bg-hero: #d9dce1;
+  --bg-surface: #ffffff;
+  --bg-surface-elevated: #f8fafc;
+  --text-main: #0f1115;
+  --text-muted: #525866;
+  --border-hairline: rgba(15, 17, 21, 0.1);
+  --outline-stroke: rgba(15, 17, 21, 0.58);
+  --contour-line: rgba(15, 17, 21, 0.045);
+}
+
+.dark {
+  color-scheme: dark;
+  --bg-page: #0c0d11;
+  --bg-hero: #0c0d11;
+  --bg-surface: #13151b;
+  --bg-surface-elevated: #181b22;
+  --text-main: #f4f5f8;
+  --text-muted: #949ba8;
+  --border-hairline: rgba(255, 255, 255, 0.08);
+  --outline-stroke: rgba(255, 255, 255, 0.24);
+  --contour-line: rgba(255, 255, 255, 0.035);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  overflow-x: clip;
+}
+
+code, pre, .font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Oversized Outlined Typography behind Hero Portrait (Matches Screenshot 1) */
+.hero-outline-text {
+  color: transparent;
+  -webkit-text-stroke: 1.75px var(--outline-stroke);
+  paint-order: stroke fill;
+}
+
+@keyframes heroMarqueeLoop {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.hero-marquee-track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: heroMarqueeLoop 22s linear infinite;
+}
+
+/* Professional Hero Location / Status Badge Animations */
+@keyframes heroBadgeFloat {
+  0%, 100% {
+    transform: translateY(0px);
+    box-shadow: 0 4px 18px -2px rgba(16, 185, 129, 0.14), 0 2px 6px -1px rgba(15, 23, 42, 0.06);
+  }
+  50% {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 26px -4px rgba(16, 185, 129, 0.28), 0 4px 12px -2px rgba(15, 23, 42, 0.1);
+  }
+}
+
+@keyframes heroBadgeShimmer {
+  0% {
+    transform: translateX(-140%) skewX(-20deg);
+  }
+  35%, 100% {
+    transform: translateX(240%) skewX(-20deg);
+  }
+}
+
+.hero-status-pill {
+  animation: heroBadgeFloat 3.6s ease-in-out infinite;
+}
+
+.hero-status-shimmer {
+  animation: heroBadgeShimmer 4.5s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+/* Subtle Topographic / Editorial Wave Lines Background (Matches Screenshots 2, 3, 4, 5) */
+.editorial-wave-bg {
+  background-image: radial-gradient(
+      circle at 50% 25%,
+      rgba(59, 130, 246, 0.05) 0%,
+      transparent 65%
+    ),
+    repeating-radial-gradient(
+      circle at 15% 85%,
+      transparent 0,
+      transparent 140px,
+      var(--contour-line) 141px,
+      transparent 142px
+    );
+}
+
+/* Vertical Scroll Indicator Text (Matches Screenshot 1) */
+.vertical-scroll-text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* Custom smooth scrollbar with light/dark mode adaptation */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  header, footer, #home, #work, #skills, #about, #journey, #archive, #contact, .fixed:not([role="dialog"]) {
+    display: none !important;
+  }
+  [role="dialog"] {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+}

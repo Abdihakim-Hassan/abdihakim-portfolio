@@ -1,0 +1,67 @@
+{
+  "entities": {
+    "Testimonial": {
+      "title": "Testimonial",
+      "description": "A client testimonial",
+      "type": "object",
+      "properties": {
+        "clientName": { "type": "string", "maxLength": 100 },
+        "quote": { "type": "string", "maxLength": 1000 },
+        "rating": { "type": "number" },
+        "role": { "type": "string" },
+        "company": { "type": "string" },
+        "metric": { "type": "string" }
+      }
+    },
+    "ContactMessage": {
+      "title": "ContactMessage",
+      "description": "A contact form message",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      }
+    },
+    "Skill": {
+      "title": "Skill",
+      "description": "A technical skill",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "percentage": { "type": "number" },
+        "category": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "Project": {
+      "title": "Project",
+      "description": "A project case study",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "tagline": { "type": "string" },
+        "category": { "type": "string" },
+        "overview": { "type": "string" },
+        "architecture": { "type": "string" },
+        "challenge": { "type": "string" },
+        "solution": { "type": "string" },
+        "technologies": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "BlogPost": {
+      "title": "BlogPost",
+      "description": "A blog post",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "content": { "type": "string" },
+        "publishedDate": { "type": "string" },
+        "readTime": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

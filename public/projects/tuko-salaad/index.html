@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="so">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Tuko</title>
+    <meta name="description" content="Tuko – App-ka Casriga ah ee Ilaalinta Salaadaha, Dikriga &amp; Qur'aanka Soomaaliya oo leh waqtiyo toos ah, diiwaangelin, iyo xog-kaydin cloud ah." />
+    <meta property="og:title" content="Tuko" />
+    <meta property="og:description" content="Tuko – App-ka Casriga ah ee Ilaalinta Salaadaha, Dikriga &amp; Qur'aanka Soomaaliya oo leh waqtiyo toos ah, diiwaangelin, iyo xog-kaydin cloud ah." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#03221e" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Tuko" />
+    <meta name="application-name" content="Tuko" />
+    <style>:root{--app-bg:#03221e;--lightningcss-light: ;--lightningcss-dark:initial;color-scheme:dark}*,:before,:after{box-sizing:border-box}html{-webkit-text-size-adjust:100%;--lightningcss-light: ;--lightningcss-dark:initial;color-scheme:dark;background-color:#03221e!important;width:100%!important;height:100%!important;margin:0!important;padding:0!important;overflow-x:hidden!important}body{-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;color:#f8fafc!important;background-color:#03221e!important;width:100%!important;min-height:100dvh!important;margin:0!important;padding:0!important;overflow-x:hidden!important}#root{background-color:#03221e!important;width:100%!important;min-height:100dvh!important;margin:0!important;padding:0!important}#tuko-initial-splash{color:#f8fafc!important;z-index:99999!important;background-color:#03221e!important;flex-direction:column!important;justify-content:center!important;align-items:center!important;width:100vw!important;height:100dvh!important;margin:0!important;padding:24px!important;display:flex!important;position:fixed!important;inset:0!important}@keyframes tukoSpin{to{transform:rotate(360deg)}}</style>
+    <link rel="manifest" href="/projects/tuko-salaad/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/projects/tuko-salaad/icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/projects/tuko-salaad/pwa-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/projects/tuko-salaad/pwa-512x512.png" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/projects/tuko-salaad/favicon.png" />
+    <link rel="icon" type="image/x-icon" href="/projects/tuko-salaad/favicon.ico" />
+    <link rel="shortcut icon" href="/projects/tuko-salaad/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/projects/tuko-salaad/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" href="/projects/tuko-salaad/apple-touch-icon.png" />
+    <script>
+      // Capture early beforeinstallprompt event so it is never missed by React
+      window.__tukoDeferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        window.__tukoDeferredPrompt = e;
+        window.dispatchEvent(new CustomEvent('tuko-prompt-ready'));
+      });
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script type="module" crossorigin src="/projects/tuko-salaad/assets/index-CVcnJeTW.js"></script>
+    <link rel="stylesheet" crossorigin href="/projects/tuko-salaad/assets/index-DiWug05X.css">
+  </head>
+  <body class="bg-[#03221e] text-slate-100 antialiased selection:bg-teal-500/30 selection:text-teal-200 min-h-screen">
+    <div id="root">
+      <!-- Native Tuko App Startup Splash Screen: Replaces any generic loading screens -->
+      <div id="tuko-initial-splash">
+        <!-- Tuko App Gold & Emerald Brand Logo -->
+        <div style="width:108px;height:108px;border-radius:28px;background:linear-gradient(135deg,#0a443c 0%,#021b17 100%);border:2px solid rgba(52,211,153,0.35);display:flex;align-items:center;justify-content:center;box-shadow:0 20px 35px -8px rgba(0,0,0,0.6),0 0 30px rgba(20,184,166,0.25);margin-bottom:22px;">
+          <svg width="68" height="68" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M256 65 C345 65 418 135 418 225 C418 315 345 385 256 385 C228 385 202 378 180 365 C232 348 270 300 270 242 C270 174 222 118 158 102 C186 78 219 65 256 65 Z" fill="url(#tukoSplashGold)" />
+            <path d="M198 440 L198 320 C198 280 228 250 256 250 C284 250 314 280 314 320 L314 440 Z" fill="#03221e" stroke="url(#tukoSplashGold)" stroke-width="12" />
+            <circle cx="256" cy="180" r="14" fill="#fde047" />
+            <defs>
+              <linearGradient id="tukoSplashGold" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#fffbeb" />
+                <stop offset="25%" stop-color="#fde047" />
+                <stop offset="55%" stop-color="#f59e0b" />
+                <stop offset="100%" stop-color="#b45309" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <h1 style="font-size:30px;font-weight:900;letter-spacing:0.5px;color:#34d399;margin:0 0 6px 0;">Tuko</h1>
+        <p style="font-size:13px;color:#a7f3d0;margin:0 0 28px 0;opacity:0.85;font-weight:600;letter-spacing:0.3px;">Dhawr-Salaad &amp; Adkaar</p>
+        <div style="width:34px;height:34px;border:3px solid rgba(52,211,153,0.18);border-top-color:#34d399;border-radius:50%;animation:tukoSpin 0.9s linear infinite;"></div>
+        <button id="tuko-splash-reload-btn" onclick="window.location.reload()" style="display:none;margin-top:22px;padding:10px 22px;border-radius:14px;background:rgba(52,211,153,0.15);border:1px solid #34d399;color:#34d399;font-weight:800;font-size:12px;cursor:pointer;">
+          Cusbooneysii (Reload App)
+        </button>
+        <script>
+          setTimeout(function() {
+            var btn = document.getElementById('tuko-splash-reload-btn');
+            if (btn) btn.style.display = 'inline-block';
+          }, 4000);
+        </script>
+      </div>
+    </div>
+  </body>
+</html>
+
