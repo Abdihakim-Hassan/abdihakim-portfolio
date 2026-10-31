@@ -1,4 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import {
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  User,
+  IdTokenResult,
+} from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../firebaseConfig';
 import { Project } from '../types';
 import { PORTFOLIO_OWNER, PROJECTS_DATA } from '../data/portfolioData';
 
@@ -44,19 +53,26 @@ export const INITIAL_INQUIRIES: Inquiry[] = [
   },
 ];
 
+interface LoginResult {
+  success: boolean;
+  error?: string;
+}
+
 interface PortfolioContextType {
   owner: PortfolioOwnerData;
   projects: Project[];
   inquiries: Inquiry[];
+  currentUser: User | null;
   isAdminLoggedIn: boolean;
+  isAuthChecking: boolean;
   isSignInModalOpen: boolean;
   isDashboardModalOpen: boolean;
   isEmailModalOpen: boolean;
   setIsSignInModalOpen: (open: boolean) => void;
   setIsDashboardModalOpen: (open: boolean) => void;
   setIsEmailModalOpen: (open: boolean) => void;
-  login: (user: string, pass: string) => boolean;
-  logout: () => void;
+  login: (email: string, pass: string) => Promise<LoginResult>;
+  logout: () => Promise<void>;
   updateOwner: (updated: Partial<PortfolioOwnerData>) => void;
   addProject: (project: Project) => void;
   updateProject: (id: string, updated: Partial<Project>) => void;
@@ -70,10 +86,43 @@ interface PortfolioContextType {
 
 const STORAGE_KEYS = {
   DB: 'abdihakim_portfolio_db_v1',
-  AUTH: 'abdihakim_portfolio_admin_auth',
 };
 
 const PortfolioContext = createContext<PortfolioContextType | undefined>(undefined);
+
+/**
+ * Checks whether an authenticated Firebase User has administrator authorization.
+ * Verification uses server-controlled token claims and Firestore admin records.
+ */
+async function verifyAdminAuthorization(user: User): Promise<boolean> {
+  try {
+    // 1. Primary check: Firebase Auth Custom Claims (server-minted)
+    const idTokenResult: IdTokenResult = await user.getIdTokenResult(true);
+    if (idTokenResult.claims && idTokenResult.claims.admin === true) {
+      return true;
+    }
+
+    // 2. Authoritative check: Firestore `admins/{uid}` document lookup
+    const adminDocRef = doc(db, 'admins', user.uid);
+    const adminDocSnap = await getDoc(adminDocRef);
+    if (adminDocSnap.exists()) {
+      const data = adminDocSnap.data();
+      if (data && (data.role === 'admin' || data.isAdmin === true)) {
+        return true;
+      }
+    }
+
+    // 3. Fallback check: Match primary verified owner email
+    if (user.email && user.email.toLowerCase() === PORTFOLIO_OWNER.email.toLowerCase()) {
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.error('Security verification check failed:', err);
+    return false;
+  }
+}
 
 export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [owner, setOwner] = useState<PortfolioOwnerData>(() => {
@@ -84,7 +133,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (parsed.owner) return { ...PORTFOLIO_OWNER, ...parsed.owner };
       }
     } catch (e) {
-      console.warn('Failed to load owner from localStorage', e);
+      console.warn('Failed to load owner data from cache', e);
     }
     return PORTFOLIO_OWNER;
   });
@@ -99,7 +148,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       }
     } catch (e) {
-      console.warn('Failed to load projects from localStorage', e);
+      console.warn('Failed to load projects from cache', e);
     }
     return PROJECTS_DATA;
   });
@@ -114,24 +163,46 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       }
     } catch (e) {
-      console.warn('Failed to load inquiries from localStorage', e);
+      console.warn('Failed to load inquiries from cache', e);
     }
     return INITIAL_INQUIRIES;
   });
 
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEYS.AUTH) === 'true';
-    } catch {
-      return false;
-    }
-  });
+  // Authoritative Firebase Authentication & Authorization State
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
 
   const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
   const [isDashboardModalOpen, setIsDashboardModalOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
-  // Sync state changes to localStorage
+  // Authoritative Firebase Auth State Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setIsAuthChecking(true);
+      if (user) {
+        setCurrentUser(user);
+        const authorized = await verifyAdminAuthorization(user);
+        if (authorized) {
+          setIsAdminLoggedIn(true);
+        } else {
+          // User is authenticated but NOT authorized as an admin
+          setIsAdminLoggedIn(false);
+          setIsDashboardModalOpen(false);
+        }
+      } else {
+        setCurrentUser(null);
+        setIsAdminLoggedIn(false);
+        setIsDashboardModalOpen(false);
+      }
+      setIsAuthChecking(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Save cached content for offline resilience
   const persistState = (newOwner: PortfolioOwnerData, newProjects: Project[], newInquiries: Inquiry[]) => {
     try {
       localStorage.setItem(
@@ -139,42 +210,85 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         JSON.stringify({ owner: newOwner, projects: newProjects, inquiries: newInquiries })
       );
     } catch (e) {
-      console.error('Failed to persist portfolio data', e);
+      console.error('Failed to persist portfolio data cache', e);
     }
   };
 
-  const login = (user: string, pass: string): boolean => {
-    const trimmedUser = user.trim().toLowerCase();
-    const trimmedPass = pass.trim();
-    // User requirement: user=admin, password=123 (also supports casing & admin password)
-    if (
-      (trimmedUser === 'admin' || trimmedUser === 'abdihakim') &&
-      (trimmedPass === '123' || trimmedPass === 'admin')
-    ) {
-      setIsAdminLoggedIn(true);
-      try {
-        localStorage.setItem(STORAGE_KEYS.AUTH, 'true');
-      } catch (e) {
-        console.error(e);
+  /**
+   * Secure Firebase Authentication login.
+   * Authenticates user via Firebase and validates admin authorization.
+   */
+  const login = async (email: string, pass: string): Promise<LoginResult> => {
+    const cleanEmail = email.trim();
+    const cleanPass = pass.trim();
+
+    if (!cleanEmail || !cleanPass) {
+      return { success: false, error: 'Please provide both email and password.' };
+    }
+
+    try {
+      // 1. Authenticate with Firebase Authentication
+      const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPass);
+      const user = userCredential.user;
+
+      // 2. Authoritative Admin Authorization Check
+      const isAuthorizedAdmin = await verifyAdminAuthorization(user);
+
+      if (!isAuthorizedAdmin) {
+        // Sign out unauthorized user immediately
+        await signOut(auth);
+        setCurrentUser(null);
+        setIsAdminLoggedIn(false);
+        return {
+          success: false,
+          error: 'Access Denied: This account is authenticated but does not have administrator privileges.',
+        };
       }
+
+      // 3. Authorized Admin Access Granted
+      setCurrentUser(user);
+      setIsAdminLoggedIn(true);
       setIsSignInModalOpen(false);
       setIsDashboardModalOpen(true);
-      return true;
+      return { success: true };
+    } catch (err: any) {
+      console.error('Firebase authentication error:', err);
+      let errorMessage = 'Authentication failed. Please verify your email and password.';
+
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+        errorMessage = 'Invalid email or password.';
+      } else if (err.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed login attempts. Please try again later.';
+      } else if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      return { success: false, error: errorMessage };
     }
-    return false;
   };
 
-  const logout = () => {
-    setIsAdminLoggedIn(false);
-    setIsDashboardModalOpen(false);
+  /**
+   * Secure Logout - Tears down Firebase authentication session
+   */
+  const logout = async (): Promise<void> => {
     try {
-      localStorage.removeItem(STORAGE_KEYS.AUTH);
-    } catch (e) {
-      console.error(e);
+      await signOut(auth);
+    } catch (err) {
+      console.error('Error signing out:', err);
+    } finally {
+      setCurrentUser(null);
+      setIsAdminLoggedIn(false);
+      setIsDashboardModalOpen(false);
     }
   };
 
   const updateOwner = (updated: Partial<PortfolioOwnerData>) => {
+    if (!isAdminLoggedIn) {
+      console.warn('Unauthorized operation attempted: updateOwner');
+      return;
+    }
     setOwner((prev) => {
       const next = { ...prev, ...updated };
       persistState(next, projects, inquiries);
@@ -183,6 +297,10 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const addProject = (project: Project) => {
+    if (!isAdminLoggedIn) {
+      console.warn('Unauthorized operation attempted: addProject');
+      return;
+    }
     setProjects((prev) => {
       const next = [project, ...prev];
       persistState(owner, next, inquiries);
@@ -191,6 +309,10 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const updateProject = (id: string, updated: Partial<Project>) => {
+    if (!isAdminLoggedIn) {
+      console.warn('Unauthorized operation attempted: updateProject');
+      return;
+    }
     setProjects((prev) => {
       const next = prev.map((p) => (p.id === id ? { ...p, ...updated } : p));
       persistState(owner, next, inquiries);
@@ -199,6 +321,10 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const deleteProject = (id: string) => {
+    if (!isAdminLoggedIn) {
+      console.warn('Unauthorized operation attempted: deleteProject');
+      return;
+    }
     setProjects((prev) => {
       const next = prev.filter((p) => p.id !== id);
       persistState(owner, next, inquiries);
@@ -224,6 +350,10 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const deleteInquiry = (id: string) => {
+    if (!isAdminLoggedIn) {
+      console.warn('Unauthorized operation attempted: deleteInquiry');
+      return;
+    }
     setInquiries((prev) => {
       const next = prev.filter((i) => i.id !== id);
       persistState(owner, projects, next);
@@ -232,6 +362,9 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const markInquiryRead = (id: string) => {
+    if (!isAdminLoggedIn) {
+      return;
+    }
     setInquiries((prev) => {
       const next = prev.map((i) => (i.id === id ? { ...i, read: true } : i));
       persistState(owner, projects, next);
@@ -240,6 +373,10 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const importDatabase = (jsonString: string): boolean => {
+    if (!isAdminLoggedIn) {
+      console.warn('Unauthorized operation attempted: importDatabase');
+      return false;
+    }
     try {
       const parsed = JSON.parse(jsonString);
       if (parsed.owner) {
@@ -264,6 +401,10 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const resetToDefaults = () => {
+    if (!isAdminLoggedIn) {
+      console.warn('Unauthorized operation attempted: resetToDefaults');
+      return;
+    }
     try {
       localStorage.removeItem(STORAGE_KEYS.DB);
     } catch (e) {
@@ -280,7 +421,9 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         owner,
         projects,
         inquiries,
+        currentUser,
         isAdminLoggedIn,
+        isAuthChecking,
         isSignInModalOpen,
         isDashboardModalOpen,
         isEmailModalOpen,

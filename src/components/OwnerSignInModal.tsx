@@ -5,7 +5,7 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  User,
+  Mail,
   ArrowRight,
 } from 'lucide-react';
 import { usePortfolioData } from '../context/PortfolioDataContext';
@@ -17,7 +17,7 @@ interface OwnerSignInModalProps {
 
 export const OwnerSignInModal: React.FC<OwnerSignInModalProps> = ({ lang }) => {
   const { isSignInModalOpen, setIsSignInModalOpen, login, owner } = usePortfolioData();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,26 +25,25 @@ export const OwnerSignInModal: React.FC<OwnerSignInModalProps> = ({ lang }) => {
 
   if (!isSignInModalOpen) return null;
 
-  const handleExecuteLogin = (u: string, p: string) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
     setIsLoading(true);
 
-    setTimeout(() => {
-      const success = login(u, p);
-      if (!success) {
-        setIsLoading(false);
-        setError(
-          lang === 'so'
-            ? 'Xogta galitaanka ma saxna. Fadlan hubi magaca iyo furaha sirta ah.'
-            : 'Invalid credentials. Please check your username and password.'
-        );
+    try {
+      const result = await login(email, password);
+      if (!result.success) {
+        setError(result.error || (lang === 'so' ? 'Galitaanka waa lagu guuldarreystay.' : 'Authentication failed.'));
+      } else {
+        // Successful login, clear credentials from component memory
+        setEmail('');
+        setPassword('');
       }
-    }, 250);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleExecuteLogin(username, password);
+    } catch (err: any) {
+      setError(err?.message || (lang === 'so' ? 'Qalad aan la filayn ayaa dhacay.' : 'An unexpected error occurred.'));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -80,8 +79,8 @@ export const OwnerSignInModal: React.FC<OwnerSignInModalProps> = ({ lang }) => {
               </h3>
               <p className="text-xs sm:text-[13px] text-zinc-500 dark:text-zinc-400 mt-1">
                 {lang === 'so'
-                  ? 'Geli xogtaada si aad u maamusho portfolio-ga.'
-                  : 'Enter your credentials to access your dashboard.'}
+                  ? 'Geli emailkaaga iyo furahaaga si aad u maamusho portfolio-ga.'
+                  : 'Enter your verified email and password to access your dashboard.'}
               </p>
             </div>
           </div>
@@ -98,15 +97,15 @@ export const OwnerSignInModal: React.FC<OwnerSignInModalProps> = ({ lang }) => {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-xs sm:text-[13px] font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
-                {lang === 'so' ? 'Magaca Isticmaalaha' : 'Username'}
+                {lang === 'so' ? 'Email-ka Maamulaha' : 'Administrator Email'}
               </label>
               <div className="relative">
-                <User className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Mail className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder={lang === 'so' ? 'Geli magacaaga' : 'Enter username'}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={lang === 'so' ? 'tusaale@domain.com' : 'admin@domain.com'}
                   className="h-12 w-full pl-10 pr-4 py-3 rounded-xl bg-zinc-900/[0.02] dark:bg-white/[0.03] border border-zinc-900/15 dark:border-white/15 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-zinc-950 dark:focus:border-white focus:ring-1 focus:ring-zinc-950 dark:focus:ring-white transition-all"
                   required
                   autoFocus
@@ -124,7 +123,7 @@ export const OwnerSignInModal: React.FC<OwnerSignInModalProps> = ({ lang }) => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={lang === 'so' ? 'Geli furahaaga sirta ah' : 'Enter password'}
+                  placeholder={lang === 'so' ? 'Geli furahaaga sirta ah' : 'Enter your password'}
                   className="h-12 w-full pl-10 pr-10 py-3 rounded-xl bg-zinc-900/[0.02] dark:bg-white/[0.03] border border-zinc-900/15 dark:border-white/15 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:border-zinc-950 dark:focus:border-white focus:ring-1 focus:ring-zinc-950 dark:focus:ring-white transition-all"
                   required
                 />
@@ -145,10 +144,10 @@ export const OwnerSignInModal: React.FC<OwnerSignInModalProps> = ({ lang }) => {
               className="h-12 w-full mt-2 py-3 px-5 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 shadow-sm"
             >
               {isLoading ? (
-                <span>{lang === 'so' ? 'Waa la hubinayaa...' : 'Signing in...'}</span>
+                <span>{lang === 'so' ? 'Waa la hubinayaa...' : 'Verifying credentials...'}</span>
               ) : (
                 <>
-                  <span>{lang === 'so' ? 'Gal Dashboard-ka' : 'Sign In'}</span>
+                  <span>{lang === 'so' ? 'Gal Dashboard-ka' : 'Sign In to Dashboard'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
