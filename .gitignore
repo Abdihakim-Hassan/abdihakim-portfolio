@@ -6,3 +6,12 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Service account keys & credentials (protect from accidental commit)
+serviceAccountKey*.json
+service-account*.json
+*serviceAccount*.json
+*.pem
+*.key
+scripts/*.json
+!scripts/package.json

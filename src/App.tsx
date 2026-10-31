@@ -136,7 +136,7 @@ function PortfolioMain() {
         lang={lang}
       />
 
-      {/* Owner Sign In Modal (Demo credentials: admin / 123) */}
+      {/* Owner Sign In Modal */}
       <OwnerSignInModal lang={lang} />
 
       {/* Owner Dashboard Modal */}

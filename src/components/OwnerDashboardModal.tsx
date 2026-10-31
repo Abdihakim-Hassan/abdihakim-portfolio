@@ -57,6 +57,7 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
   const {
     isDashboardModalOpen,
     setIsDashboardModalOpen,
+    isAdminLoggedIn,
     owner,
     projects,
     inquiries = [],
@@ -123,7 +124,14 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isDashboardModalOpen, editingProject, isCreatingProject, selectedInquiry, setIsDashboardModalOpen]);
 
-  if (!isDashboardModalOpen) return null;
+  // Security gate: Auto-close if admin is logged out or unverified
+  useEffect(() => {
+    if (isDashboardModalOpen && !isAdminLoggedIn) {
+      setIsDashboardModalOpen(false);
+    }
+  }, [isDashboardModalOpen, isAdminLoggedIn, setIsDashboardModalOpen]);
+
+  if (!isDashboardModalOpen || !isAdminLoggedIn) return null;
 
   const getGreeting = () => {
     const hour = new Date().getHours();

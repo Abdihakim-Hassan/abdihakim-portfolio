@@ -6,8 +6,7 @@ import {
   User,
   IdTokenResult,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../firebaseConfig';
+import { auth } from '../firebaseConfig';
 import { Project } from '../types';
 import { PORTFOLIO_OWNER, PROJECTS_DATA } from '../data/portfolioData';
 
@@ -92,32 +91,14 @@ const PortfolioContext = createContext<PortfolioContextType | undefined>(undefin
 
 /**
  * Checks whether an authenticated Firebase User has administrator authorization.
- * Verification uses server-controlled token claims and Firestore admin records.
+ * Strictly uses server-minted Firebase Custom Claims (`token.admin === true`) as the single
+ * authoritative source of truth. Does not accept client-side emails or unverified records.
  */
 async function verifyAdminAuthorization(user: User): Promise<boolean> {
   try {
-    // 1. Primary check: Firebase Auth Custom Claims (server-minted)
+    // Force refresh the token to obtain latest server-minted claims
     const idTokenResult: IdTokenResult = await user.getIdTokenResult(true);
-    if (idTokenResult.claims && idTokenResult.claims.admin === true) {
-      return true;
-    }
-
-    // 2. Authoritative check: Firestore `admins/{uid}` document lookup
-    const adminDocRef = doc(db, 'admins', user.uid);
-    const adminDocSnap = await getDoc(adminDocRef);
-    if (adminDocSnap.exists()) {
-      const data = adminDocSnap.data();
-      if (data && (data.role === 'admin' || data.isAdmin === true)) {
-        return true;
-      }
-    }
-
-    // 3. Fallback check: Match primary verified owner email
-    if (user.email && user.email.toLowerCase() === PORTFOLIO_OWNER.email.toLowerCase()) {
-      return true;
-    }
-
-    return false;
+    return Boolean(idTokenResult.claims && idTokenResult.claims.admin === true);
   } catch (err) {
     console.error('Security verification check failed:', err);
     return false;

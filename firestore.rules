@@ -1,39 +1,81 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model & Access Control Architecture
+    // ===============================================================
+    //
+    // Administrator authorization relies strictly on Firebase Custom Claims:
+    // request.auth.token.admin == true
+    //
+    // Collections:
+    // - /projects/{projectId}: Portfolio showcase projects (public read, admin write)
+    // - /skills/{skillId}: Technical skills and proficiencies (public read, admin write)
+    // - /blogPosts/{blogId}: Articles and engineering writeups (public read, admin write)
+    // - /testimonials/{testimonialId}: Client/peer feedback (public read, public create with validation, admin update/delete)
+    //     * name: string (1-100 chars)
+    //     * text: string (1-1000 chars)
+    // - /contactMessages/{messageId}: Direct contact form inquiries (public create with validation, admin read/update/delete)
+    //     * name: string (1-100 chars)
+    //     * email: string (1-150 chars)
+    //     * message: string (1-3000 chars)
+    //
+    // All other collections and documents: Deny all reads and writes by default.
+    // ===============================================================
+
     // Helper functions
-    function isSignedIn() { return request.auth != null; }
-    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$'); }
-
-    // Testimonials
-    match /testimonials/{testimonialId} {
-      allow read: if true;
-      allow create: if true; // Public can add testimonials
-      allow update, delete: if isSignedIn(); // Admin only
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // Contact Messages
-    match /contactMessages/{messageId} {
-      allow create: if true; // Public can send messages
-      allow read, update, delete: if isSignedIn(); // Admin only
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
     }
 
-    // Skills
-    match /skills/{skillId} {
-      allow read: if true;
-      allow write: if isSignedIn(); // Admin only
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
     }
 
-    // Projects
+    // Projects: Public read, admin manage
     match /projects/{projectId} {
       allow read: if true;
-      allow write: if isSignedIn(); // Admin only
+      allow write: if isAdmin();
     }
 
-    // Blog Posts
+    // Skills: Public read, admin manage
+    match /skills/{skillId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Blog Posts: Public read, admin manage
     match /blogPosts/{blogId} {
       allow read: if true;
-      allow write: if isSignedIn(); // Admin only
+      allow write: if isAdmin();
+    }
+
+    // Testimonials: Public read, validated public submission, admin manage
+    match /testimonials/{testimonialId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['name', 'text']) &&
+                      request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 100 &&
+                      request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000;
+      allow update, delete: if isAdmin();
+    }
+
+    // Contact Messages: Validated public submission, admin-only read and management (PII protected)
+    match /contactMessages/{messageId} {
+      allow create: if request.resource.data.keys().hasAll(['name', 'email', 'message']) &&
+                      request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 100 &&
+                      request.resource.data.email is string && request.resource.data.email.size() > 0 && request.resource.data.email.size() <= 150 &&
+                      request.resource.data.message is string && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 3000;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Default deny for all other collections and documents
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
