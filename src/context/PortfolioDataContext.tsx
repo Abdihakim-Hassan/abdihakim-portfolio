@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
   User,
@@ -71,6 +73,7 @@ interface PortfolioContextType {
   setIsDashboardModalOpen: (open: boolean) => void;
   setIsEmailModalOpen: (open: boolean) => void;
   login: (email: string, pass: string) => Promise<LoginResult>;
+  loginWithGoogle: () => Promise<LoginResult>;
   logout: () => Promise<void>;
   updateOwner: (updated: Partial<PortfolioOwnerData>) => void;
   addProject: (project: Project) => void;
@@ -251,6 +254,50 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   /**
+   * Google Sign-In via Firebase Authentication.
+   * Identity comes from Google; administrator privileges come ONLY from the
+   * server-assigned Custom Claim (`admin === true`). No email comparison is done here.
+   */
+  const loginWithGoogle = async (): Promise<LoginResult> => {
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const userCredential = await signInWithPopup(auth, provider);
+      const user = userCredential.user;
+
+      const isAuthorizedAdmin = await verifyAdminAuthorization(user);
+      if (!isAuthorizedAdmin) {
+        await signOut(auth);
+        setCurrentUser(null);
+        setIsAdminLoggedIn(false);
+        return {
+          success: false,
+          error: 'Access Denied: This account is authenticated but does not have administrator privileges.',
+        };
+      }
+
+      setCurrentUser(user);
+      setIsAdminLoggedIn(true);
+      setIsSignInModalOpen(false);
+      setIsDashboardModalOpen(true);
+      return { success: true };
+    } catch (err: any) {
+      console.error('Google sign-in error:', err);
+      let errorMessage = 'Google sign-in failed. Please try again.';
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        errorMessage = 'Sign-in was cancelled.';
+      } else if (err.code === 'auth/popup-blocked') {
+        errorMessage = 'Popup was blocked by the browser. Please allow popups for this site.';
+      } else if (err.code === 'auth/unauthorized-domain') {
+        errorMessage = 'This domain is not authorized for Google sign-in in Firebase Authentication settings.';
+      } else if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      }
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  /**
    * Secure Logout - Tears down Firebase authentication session
    */
   const logout = async (): Promise<void> => {
@@ -412,6 +459,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setIsDashboardModalOpen,
         setIsEmailModalOpen,
         login,
+        loginWithGoogle,
         logout,
         updateOwner,
         addProject,
