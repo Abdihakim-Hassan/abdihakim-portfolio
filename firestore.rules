@@ -2,78 +2,263 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ===============================================================
-    // Assumed Data Model & Access Control Architecture
-    // ===============================================================
-    //
-    // Administrator authorization relies strictly on Firebase Custom Claims:
-    // request.auth.token.admin == true
-    //
-    // Collections:
-    // - /projects/{projectId}: Portfolio showcase projects (public read, admin write)
-    // - /skills/{skillId}: Technical skills and proficiencies (public read, admin write)
-    // - /blogPosts/{blogId}: Articles and engineering writeups (public read, admin write)
-    // - /testimonials/{testimonialId}: Client/peer feedback (public read, public create with validation, admin update/delete)
-    //     * name: string (1-100 chars)
-    //     * text: string (1-1000 chars)
-    // - /contactMessages/{messageId}: Direct contact form inquiries (public create with validation, admin read/update/delete)
-    //     * name: string (1-100 chars)
-    //     * email: string (1-150 chars)
-    //     * message: string (1-3000 chars)
-    //
-    // All other collections and documents: Deny all reads and writes by default.
-    // ===============================================================
-
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
+    // ===================== Authorization =====================
+    // Admin = Firebase Custom Claim ONLY (request.auth.token.admin == true).
+    // Assigned exclusively via server-side Firebase Admin SDK.
     function isAdmin() {
       return request.auth != null && request.auth.token.admin == true;
     }
 
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
+    // ===================== Validators =====================
+    function isStr(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max;
     }
 
-    // Projects: Public read, admin manage
-    match /projects/{projectId} {
+    function isStr40(v) {
+      return v is string && v.size() >= 1 && v.size() <= 40;
+    }
+
+    function isStr60(v) {
+      return v is string && v.size() >= 1 && v.size() <= 60;
+    }
+
+    function strMax(v, max) {
+      return v is string && v.size() <= max;
+    }
+
+    function notBlank(v) {
+      return v.matches('[\\s\\S]*\\S[\\s\\S]*');
+    }
+
+    function optStr(d, f, max) {
+      return !(f in d) || strMax(d[f], max);
+    }
+
+    // Format validation only: does not verify if mailbox exists or belongs to sender.
+    function isEmail(v) {
+      return isStr(v, 5, 150) && v.matches('^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$');
+    }
+
+    // Link shape validation: http(s), root-relative (no protocol-relative //), or empty/#.
+    function isLink(v) {
+      return v is string && v.size() <= 2000
+        && v.matches('^(|#|https?://[^\\s]+|/[^/\\s][^\\s]*)$');
+    }
+
+    function optLink(d, f) {
+      return !(f in d) || isLink(d[f]);
+    }
+
+    // Exact bilingual map check: size == 2 + property access guarantees only 'en' and 'so'.
+    function biStr(v, max) {
+      return v is map && v.size() == 2
+        && v.en is string && v.so is string
+        && v.en.size() <= max && v.so.size() <= max;
+    }
+
+    function bi3k(v) {
+      return v is map && v.size() == 2
+        && v.en is string && v.so is string
+        && v.en.size() <= 3000 && v.so.size() <= 3000;
+    }
+
+    function biReq(v, max) {
+      return v is map && v.size() == 2
+        && isStr(v.en, 1, max)
+        && v.so is string && v.so.size() <= max;
+    }
+
+    // Validates every individual technology string (up to 6 items, real data has 5)
+    function validTechs(l) {
+      return l is list && l.size() <= 6
+        && (l.size() <= 0 || isStr40(l[0]))
+        && (l.size() <= 1 || isStr40(l[1]))
+        && (l.size() <= 2 || isStr40(l[2]))
+        && (l.size() <= 3 || isStr40(l[3]))
+        && (l.size() <= 4 || isStr40(l[4]))
+        && (l.size() <= 5 || isStr40(l[5]));
+    }
+
+    function isMetricLabel(lbl) {
+      return lbl is map && lbl.size() == 2
+        && isStr60(lbl.so) && isStr60(lbl.en);
+    }
+
+    // Validates metric map: label has exact {so, en} and value is string
+    function isMetric(m) {
+      return m is map && m.size() == 2
+        && isMetricLabel(m.label)
+        && isStr40(m.value);
+    }
+
+    // Validates every metric element against the TypeScript interface (up to 3 items, real data has 3)
+    function validMetrics(l) {
+      return l is list && l.size() <= 3
+        && (l.size() <= 0 || isMetric(l[0]))
+        && (l.size() <= 1 || isMetric(l[1]))
+        && (l.size() <= 2 || isMetric(l[2]));
+    }
+
+    // Validates every skill topic string (up to 6 items)
+    function validTopics(l) {
+      return l is list && l.size() <= 6
+        && (l.size() <= 0 || isStr(l[0], 1, 60))
+        && (l.size() <= 1 || isStr(l[1], 1, 60))
+        && (l.size() <= 2 || isStr(l[2], 1, 60))
+        && (l.size() <= 3 || isStr(l[3], 1, 60))
+        && (l.size() <= 4 || isStr(l[4], 1, 60))
+        && (l.size() <= 5 || isStr(l[5], 1, 60));
+    }
+
+    // Validates every blog post tag string (up to 6 items)
+    function validTags(l) {
+      return l is list && l.size() <= 6
+        && (l.size() <= 0 || isStr(l[0], 1, 40))
+        && (l.size() <= 1 || isStr(l[1], 1, 40))
+        && (l.size() <= 2 || isStr(l[2], 1, 40))
+        && (l.size() <= 3 || isStr(l[3], 1, 40))
+        && (l.size() <= 4 || isStr(l[4], 1, 40))
+        && (l.size() <= 5 || isStr(l[5], 1, 40));
+    }
+
+    // Enforces server-generated timestamp (must use serverTimestamp() on client).
+    function serverNow(d) {
+      return d.createdAt is timestamp && d.createdAt == request.time;
+    }
+
+    // ===================== Contact messages =====================
+    match /contactMessages/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['name', 'email', 'subject', 'message', 'createdAt', 'read'])
+                    && request.resource.data.keys().hasAll(['name', 'email', 'subject', 'message', 'createdAt', 'read'])
+                    && isStr(request.resource.data.name, 1, 100) && notBlank(request.resource.data.name)
+                    && isEmail(request.resource.data.email)
+                    && isStr(request.resource.data.subject, 1, 200) && notBlank(request.resource.data.subject)
+                    && isStr(request.resource.data.message, 1, 3000) && notBlank(request.resource.data.message)
+                    && serverNow(request.resource.data)
+                    && request.resource.data.read == false;
+      allow read, delete: if isAdmin();
+      // Admin may change ONLY the "read" flag; message content is strictly immutable.
+      allow update: if isAdmin()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+                    && request.resource.data.read is bool;
+    }
+
+    // ===================== Testimonials =====================
+    function testimonialOptionalOk(d) {
+      return (!('rating' in d) || (d.rating is number && d.rating >= 1 && d.rating <= 5))
+             && optStr(d, 'role', 100) && optStr(d, 'company', 100) && optStr(d, 'metric', 100);
+    }
+
+    function testimonialAdminShape(d) {
+      return d.keys().hasOnly(['clientName', 'quote', 'rating', 'role', 'company', 'metric', 'createdAt', 'approved'])
+             && d.keys().hasAll(['clientName', 'quote', 'createdAt', 'approved'])
+             && isStr(d.clientName, 1, 100) && notBlank(d.clientName)
+             && isStr(d.quote, 1, 1000) && notBlank(d.quote)
+             && testimonialOptionalOk(d)
+             && d.approved is bool;
+    }
+
+    match /testimonials/{id} {
+      allow read: if resource.data.approved == true || isAdmin();
+      // Consolidated create:
+      // Path 1 (Public): approved MUST be false, metric is forbidden.
+      // Path 2 (Admin): requires admin claim, allows metric, approved can be true or false.
+      allow create: if (
+        (!isAdmin()
+          && request.resource.data.keys().hasOnly(['clientName', 'quote', 'rating', 'role', 'company', 'createdAt', 'approved'])
+          && request.resource.data.keys().hasAll(['clientName', 'quote', 'createdAt', 'approved'])
+          && isStr(request.resource.data.clientName, 1, 100) && notBlank(request.resource.data.clientName)
+          && isStr(request.resource.data.quote, 1, 1000) && notBlank(request.resource.data.quote)
+          && testimonialOptionalOk(request.resource.data)
+          && serverNow(request.resource.data)
+          && request.resource.data.approved == false)
+        ||
+        (isAdmin()
+          && testimonialAdminShape(request.resource.data)
+          && serverNow(request.resource.data))
+      );
+      // Admin update: every field re-validated; createdAt is strictly immutable.
+      allow update: if isAdmin()
+                    && testimonialAdminShape(request.resource.data)
+                    && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isAdmin();
+    }
+
+    // ===================== Blog posts =====================
+    match /blogPosts/{id} {
+      allow read: if resource.data.published == true || isAdmin();
+      allow create, update: if isAdmin()
+                    && request.resource.data.keys().hasOnly(['title', 'excerpt', 'content', 'published', 'publishedDate', 'readTime', 'tags'])
+                    && request.resource.data.keys().hasAll(['title', 'excerpt', 'content', 'published'])
+                    && isStr(request.resource.data.title, 1, 200) && notBlank(request.resource.data.title)
+                    && optStr(request.resource.data, 'excerpt', 500)
+                    && isStr(request.resource.data.content, 1, 50000) && notBlank(request.resource.data.content)
+                    && request.resource.data.published is bool
+                    && optStr(request.resource.data, 'publishedDate', 40)
+                    && optStr(request.resource.data, 'readTime', 40)
+                    && (!('tags' in request.resource.data) || validTags(request.resource.data.tags));
+      allow delete: if isAdmin();
+    }
+
+    // ===================== Projects =====================
+    function validProjectBase(d, id) {
+      return d.keys().hasOnly(['id', 'index', 'title', 'tagline', 'category', 'categoryLabel', 'stackLabel', 'image', 'year', 'client', 'featured', 'technologies', 'metrics', 'overview', 'architecture', 'challenge', 'solution', 'demoUrl', 'liveAppUrl', 'githubUrl'])
+        && d.id == id
+        && isStr(d.index, 1, 10)
+        && biReq(d.title, 200)
+        && biStr(d.tagline, 400)
+        && d.category is string && d.category.matches('^(web|ecommerce|cloud|design|ai|mobile|desktop)$')
+        && biReq(d.categoryLabel, 60)
+        && d.stackLabel is string && d.stackLabel.size() <= 150
+        && isStr(d.image, 1, 2000)
+        && d.year is string && d.year.size() <= 10
+        && d.client is string && d.client.size() <= 100
+        && d.featured is bool;
+    }
+
+    function validProjectContent(d) {
+      return validTechs(d.technologies)
+        && validMetrics(d.metrics)
+        && bi3k(d.overview)
+        && bi3k(d.architecture)
+        && bi3k(d.challenge)
+        && bi3k(d.solution)
+        && optLink(d, 'demoUrl')
+        && optLink(d, 'liveAppUrl')
+        && optLink(d, 'githubUrl');
+    }
+
+    match /projects/{id} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create, update: if isAdmin()
+                    && validProjectBase(request.resource.data, id)
+                    && validProjectContent(request.resource.data);
+      allow delete: if isAdmin();
     }
 
-    // Skills: Public read, admin manage
-    match /skills/{skillId} {
+    // ===================== Skills =====================
+    match /skills/{id} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create, update: if isAdmin()
+                    && request.resource.data.keys().hasOnly(['id', 'name', 'percentage', 'category', 'stage', 'description', 'topics'])
+                    && request.resource.data.keys().hasAll(['id', 'name', 'percentage', 'category', 'stage', 'description', 'topics'])
+                    && request.resource.data.id == id
+                    && biReq(request.resource.data.name, 100)
+                    && request.resource.data.name.so.size() >= 1
+                    && request.resource.data.percentage is number
+                    && request.resource.data.percentage >= 0 && request.resource.data.percentage <= 100
+                    && request.resource.data.category in ['Frontend', 'Backend', 'Tools']
+                    && biStr(request.resource.data.stage, 100)
+                    && biStr(request.resource.data.description, 600)
+                    && validTopics(request.resource.data.topics);
+      allow delete: if isAdmin();
     }
 
-    // Blog Posts: Public read, admin manage
-    match /blogPosts/{blogId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // Testimonials: Public read, validated public submission, admin manage
-    match /testimonials/{testimonialId} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['name', 'text']) &&
-                      request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 100 &&
-                      request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000;
-      allow update, delete: if isAdmin();
-    }
-
-    // Contact Messages: Validated public submission, admin-only read and management (PII protected)
-    match /contactMessages/{messageId} {
-      allow create: if request.resource.data.keys().hasAll(['name', 'email', 'message']) &&
-                      request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 100 &&
-                      request.resource.data.email is string && request.resource.data.email.size() > 0 && request.resource.data.email.size() <= 150 &&
-                      request.resource.data.message is string && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 3000;
-      allow read, update, delete: if isAdmin();
-    }
-
-    // Default deny for all other collections and documents
+    // ===================== Catch-all Deny =====================
+    // IMPORTANT: Firestore rules are OR-combined: if ANY matching rule allows an
+    // operation, it is allowed. This catch-all therefore does NOT override or revoke
+    // the explicit allows above. It only denies paths that NO other rule matches
+    // (unknown/new collections, e.g. a mistakenly created "admins" collection).
     match /{document=**} {
       allow read, write: if false;
     }
