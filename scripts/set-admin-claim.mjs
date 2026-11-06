@@ -5,8 +5,8 @@
  * ==============================================================================
  *
  * This script is hard-pinned. It can ONLY:
- *   - operate on Firebase project  : galvanized-ripple-5b34d
- *   - grant the claim to UID        : 7QYYQnG7G1ZE24RzMkmuarEuU1H3
+ *   - operate on Firebase project  : abdihakim-portfolio-prod
+ *   - grant the claim to UID        : FwmKMpvsXiRbi0mPg9Tl9Q90W4M2
  *   - ...whose email must be        : ccakiincasan@gmail.com (and be verified)
  * Any other target is refused. It takes NO uid/email arguments.
  *
@@ -31,8 +31,8 @@ import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 
 // ---- Pinned safety constants (do not parameterise) --------------------------
-const EXPECTED_PROJECT_ID = 'galvanized-ripple-5b34d';
-const EXPECTED_UID = '7QYYQnG7G1ZE24RzMkmuarEuU1H3';
+const EXPECTED_PROJECT_ID = 'abdihakim-portfolio-prod';
+const EXPECTED_UID = 'FwmKMpvsXiRbi0mPg9Tl9Q90W4M2';
 const EXPECTED_EMAIL = 'ccakiincasan@gmail.com';
 // -----------------------------------------------------------------------------
 

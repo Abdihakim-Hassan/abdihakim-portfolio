@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -8,7 +8,16 @@ import {
   User,
   IdTokenResult,
 } from 'firebase/auth';
-import { auth } from '../firebaseConfig';
+import {
+  collection,
+  onSnapshot,
+  query,
+  orderBy,
+  doc,
+  updateDoc,
+  deleteDoc,
+} from 'firebase/firestore';
+import { auth, db } from '../firebaseConfig';
 import { Project } from '../types';
 import { PORTFOLIO_OWNER, PROJECTS_DATA } from '../data/portfolioData';
 
@@ -158,8 +167,37 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
 
   const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
-  const [isDashboardModalOpen, setIsDashboardModalOpen] = useState(false);
+  const [isDashboardModalOpen, setIsDashboardModalOpenState] = useState<boolean>(() => {
+    try {
+      return (
+        sessionStorage.getItem('portfolio_dashboard_open') === 'true' ||
+        window.location.hash === '#dashboard'
+      );
+    } catch {
+      return false;
+    }
+  });
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+
+  // Synchronized dashboard modal state that survives page refresh
+  const setIsDashboardModalOpen = useCallback((open: boolean) => {
+    setIsDashboardModalOpenState(open);
+    try {
+      if (open) {
+        sessionStorage.setItem('portfolio_dashboard_open', 'true');
+        if (window.location.hash !== '#dashboard') {
+          window.location.hash = 'dashboard';
+        }
+      } else {
+        sessionStorage.removeItem('portfolio_dashboard_open');
+        if (window.location.hash === '#dashboard') {
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
 
   // Authoritative Firebase Auth State Listener
   useEffect(() => {
@@ -170,21 +208,86 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const authorized = await verifyAdminAuthorization(user);
         if (authorized) {
           setIsAdminLoggedIn(true);
+          // Restore open dashboard state on page refresh if previously open
+          try {
+            const wasOpen =
+              sessionStorage.getItem('portfolio_dashboard_open') === 'true' ||
+              window.location.hash === '#dashboard';
+            if (wasOpen) {
+              setIsDashboardModalOpenState(true);
+            }
+          } catch {
+            // ignore
+          }
         } else {
           // User is authenticated but NOT authorized as an admin
           setIsAdminLoggedIn(false);
-          setIsDashboardModalOpen(false);
+          setIsDashboardModalOpenState(false);
+          try {
+            sessionStorage.removeItem('portfolio_dashboard_open');
+          } catch {
+            // ignore
+          }
         }
       } else {
         setCurrentUser(null);
         setIsAdminLoggedIn(false);
-        setIsDashboardModalOpen(false);
+        setIsDashboardModalOpenState(false);
+        try {
+          sessionStorage.removeItem('portfolio_dashboard_open');
+        } catch {
+          // ignore
+        }
       }
       setIsAuthChecking(false);
     });
 
     return () => unsubscribe();
   }, []);
+
+  // Real-time Firestore sync for genuine contact submissions when admin is authenticated
+  useEffect(() => {
+    if (!isAdminLoggedIn) return;
+
+    try {
+      const q = query(collection(db, 'contactMessages'), orderBy('createdAt', 'desc'));
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const liveInquiries: Inquiry[] = snapshot.docs.map((docSnap) => {
+            const data = docSnap.data();
+            let timeStr = 'Just now';
+            if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+              const d = data.createdAt.toDate();
+              timeStr = d.toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+            }
+            return {
+              id: docSnap.id,
+              name: data.name || 'Anonymous',
+              email: data.email || '',
+              subject: data.subject || 'Portfolio Inquiry',
+              message: data.message || '',
+              timestamp: timeStr,
+              read: Boolean(data.read),
+            };
+          });
+          setInquiries(liveInquiries);
+        },
+        (err) => {
+          console.warn('Real-time inquiries sync warning:', err);
+        }
+      );
+
+      return () => unsubscribe();
+    } catch (err) {
+      console.warn('Failed to attach real-time inquiries listener:', err);
+    }
+  }, [isAdminLoggedIn]);
 
   // Save cached content for offline resilience
   const persistState = (newOwner: PortfolioOwnerData, newProjects: Project[], newInquiries: Inquiry[]) => {
@@ -309,6 +412,14 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setCurrentUser(null);
       setIsAdminLoggedIn(false);
       setIsDashboardModalOpen(false);
+      try {
+        sessionStorage.removeItem('portfolio_dashboard_open');
+        if (window.location.hash === '#dashboard') {
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      } catch {
+        // ignore
+      }
     }
   };
 
@@ -377,7 +488,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   };
 
-  const deleteInquiry = (id: string) => {
+  const deleteInquiry = async (id: string) => {
     if (!isAdminLoggedIn) {
       console.warn('Unauthorized operation attempted: deleteInquiry');
       return;
@@ -387,9 +498,17 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       persistState(owner, projects, next);
       return next;
     });
+
+    // Sync deletion to Cloud Firestore for genuine submissions
+    try {
+      const docRef = doc(db, 'contactMessages', id);
+      await deleteDoc(docRef);
+    } catch (err) {
+      console.warn('Firestore doc deletion note:', err);
+    }
   };
 
-  const markInquiryRead = (id: string) => {
+  const markInquiryRead = async (id: string) => {
     if (!isAdminLoggedIn) {
       return;
     }
@@ -398,6 +517,14 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       persistState(owner, projects, next);
       return next;
     });
+
+    // Sync read flag to Cloud Firestore for genuine submissions
+    try {
+      const docRef = doc(db, 'contactMessages', id);
+      await updateDoc(docRef, { read: true });
+    } catch (err) {
+      console.warn('Firestore doc read update note:', err);
+    }
   };
 
   const importDatabase = (jsonString: string): boolean => {

@@ -197,7 +197,7 @@ LANGUAGES
               <div>
                 <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold uppercase tracking-wider mb-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span>{isSomali ? 'Injineer Software & Web Developer' : 'Web Developer & Software Engineering Student'}</span>
+                  <span>{owner.role?.[lang] || (isSomali ? 'Injineer Software & Web Developer' : 'Web Developer & Software Engineering Student')}</span>
                 </div>
 
                 <h1

@@ -1,12 +1,12 @@
 {
-  "projectId": "galvanized-ripple-5b34d",
-  "appId": "1:723445184435:web:a1c407844c7de28f44bdc6",
-  "apiKey": "AIzaSyCbUoeVmt0liTmjctUeBHuzPHTljD5PX5w",
-  "authDomain": "galvanized-ripple-5b34d.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-abdihakimtechlux-f828da43-d91e-4ae4-b5ba-a13925de5e51",
-  "storageBucket": "galvanized-ripple-5b34d.firebasestorage.app",
-  "messagingSenderId": "723445184435",
+  "projectId": "abdihakim-portfolio-prod",
+  "appId": "1:93958288304:web:397e8debb0aa769f911c75",
+  "apiKey": "AIzaSyCpEnn7W7wJ0BSMuXdZ4Mkb7Ne9cHSd2_M",
+  "authDomain": "abdihakim-portfolio-prod.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "abdihakim-portfolio-prod.firebasestorage.app",
+  "messagingSenderId": "93958288304",
   "measurementId": "",
-  "oAuthClientId": "723445184435-bos044q1pv3n812h2ehhnmf65ver2tl1.apps.googleusercontent.com",
+  "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }

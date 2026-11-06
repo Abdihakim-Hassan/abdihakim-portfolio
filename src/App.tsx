@@ -41,6 +41,20 @@ function PortfolioMain() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Track genuine portfolio visitor sessions
+  useEffect(() => {
+    try {
+      if (!sessionStorage.getItem('abdihakim_session_recorded')) {
+        sessionStorage.setItem('abdihakim_session_recorded', '1');
+        const raw = localStorage.getItem('abdihakim_portfolio_visits_count');
+        const current = raw ? parseInt(raw, 10) : 0;
+        localStorage.setItem('abdihakim_portfolio_visits_count', (current + 1).toString());
+      }
+    } catch {
+      // ignore storage error
+    }
+  }, []);
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

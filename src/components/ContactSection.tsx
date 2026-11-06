@@ -6,18 +6,21 @@ import {
   Github,
   Linkedin,
   ArrowUpRight,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import { Language } from '../types';
 import { translations } from '../data/translations';
 import { usePortfolioData } from '../context/PortfolioDataContext';
 import { WhatsAppIcon } from './WhatsAppIcon';
+import { submitContactMessage, validateContactInput } from '../services/contactService';
 
 interface ContactSectionProps {
   lang: Language;
 }
 
 export const ContactSection: React.FC<ContactSectionProps> = ({ lang }) => {
-  const { owner, addInquiry, setIsEmailModalOpen } = usePortfolioData();
+  const { owner, setIsEmailModalOpen } = usePortfolioData();
   const t = translations[lang].contact;
 
   const [formData, setFormData] = useState({
@@ -26,29 +29,66 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ lang }) => {
     subject: '',
     message: '',
   });
+  const [lastSubmitted, setLastSubmitted] = useState<{
+    name: string;
+    email: string;
+    subject: string;
+    message: string;
+  } | null>(null);
+  const [honeypot, setHoneypot] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
+
+    // Honeypot bot protection: ignore submission silently if hidden field is filled
+    if (honeypot.trim()) {
       return;
     }
-    // Save to local portfolio database so it immediately shows up in the admin dashboard!
-    addInquiry({
-      name: formData.name.trim(),
-      email: formData.email.trim(),
-      subject: formData.subject.trim() || 'Portfolio Inquiry',
-      message: formData.message.trim(),
-    });
-    const subject = encodeURIComponent(formData.subject.trim() || `Portfolio Inquiry from ${formData.name}`);
-    const body = encodeURIComponent(
-      `Hello Eng Abdihakim Hassan,\n\nName: ${formData.name}\nEmail: ${formData.email}\nSubject: ${
-        formData.subject || 'Portfolio Inquiry'
-      }\n\nMessage:\n${formData.message}\n\n---\nSent from Abdihakim Hassan Portfolio`
-    );
-    // Direct professional email dispatch via mailto client
-    window.location.href = `mailto:${owner.email}?subject=${subject}&body=${body}`;
-    setSubmitted(true);
+
+    // Duplicate submission guard: prevent double-clicks while submitting
+    if (isSubmitting) {
+      return;
+    }
+
+    setErrorMessage(null);
+
+    // Validate inputs
+    const validation = validateContactInput(formData);
+    if (!validation.valid) {
+      setErrorMessage(validation.error || 'Please fill in all required fields correctly.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Direct Firestore submission to contactMessages collection
+      await submitContactMessage(formData);
+
+      // Confirmed server acknowledgement
+      setLastSubmitted({ ...formData });
+      setSubmitted(true);
+      // Clear form inputs only after successful server acknowledgement
+      setFormData({
+        name: '',
+        email: '',
+        subject: '',
+        message: '',
+      });
+    } catch (err: unknown) {
+      console.error('Contact submission error:', err);
+      // Preserve form contents upon failure — formData remains untouched
+      if (err instanceof Error) {
+        setErrorMessage(err.message);
+      } else {
+        setErrorMessage('Failed to send your message. Please check your connection and try again.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -236,46 +276,81 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ lang }) => {
                 </h4>
                 <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 max-w-md mx-auto">
                   {lang === 'so'
-                    ? 'Si aad fariintaada toos ugu dirto, guji badhanka hoose ee Email ama WhatsApp:'
-                    : 'To send your prepared message directly, click Email or WhatsApp below:'}
+                    ? 'Fariintaada si guul leh ayaa loo diray looguna keydiyay database-ka. Waxa kale oo aad toos iigala soo xiriiri kartaa:'
+                    : 'Your message has been successfully received and stored in the database. You can also connect directly via:'}
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                  <a
-                    href={`mailto:${owner.email}?subject=${encodeURIComponent(
-                      formData.subject || 'Portfolio Inquiry'
-                    )}&body=${encodeURIComponent(
-                      `Name: ${formData.name}\nEmail: ${formData.email}\n\n${formData.message}`
-                    )}`}
-                    className="px-5 py-2.5 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-semibold shadow-sm transition-all"
-                  >
-                    {lang === 'so' ? 'Ku Dir Email Client' : 'Send via Email Client'}
-                  </a>
-                  <a
-                    href={`${owner.whatsappLink}?text=${encodeURIComponent(
-                      `Hello Eng Abdihakim,\nName: ${formData.name}\nEmail: ${formData.email}\nSubject: ${
-                        formData.subject || 'Project Inquiry'
-                      }\n\n${formData.message}`
-                    )}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-5 py-2.5 rounded-xl bg-[#25D366] text-white text-xs font-bold shadow-[0_4px_14px_rgba(37,211,102,0.35)] hover:opacity-95 transition-opacity"
-                  >
-                    {lang === 'so' ? 'Ku Dir WhatsApp' : 'Send via WhatsApp'}
-                  </a>
+                  {lastSubmitted && (
+                    <>
+                      <a
+                        href={`mailto:${owner.email}?subject=${encodeURIComponent(
+                          lastSubmitted.subject || 'Portfolio Inquiry'
+                        )}&body=${encodeURIComponent(
+                          `Name: ${lastSubmitted.name}\nEmail: ${lastSubmitted.email}\n\n${lastSubmitted.message}`
+                        )}`}
+                        className="px-5 py-2.5 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 text-xs font-semibold shadow-sm transition-all"
+                      >
+                        {lang === 'so' ? 'Ku Dir Email Client' : 'Send via Email Client'}
+                      </a>
+                      <a
+                        href={`${owner.whatsappLink}?text=${encodeURIComponent(
+                          `Hello Eng Abdihakim,\nName: ${lastSubmitted.name}\nEmail: ${lastSubmitted.email}\nSubject: ${
+                            lastSubmitted.subject || 'Project Inquiry'
+                          }\n\n${lastSubmitted.message}`
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-5 py-2.5 rounded-xl bg-[#25D366] text-white text-xs font-bold shadow-[0_4px_14px_rgba(37,211,102,0.35)] hover:opacity-95 transition-opacity"
+                      >
+                        {lang === 'so' ? 'Ku Dir WhatsApp' : 'Send via WhatsApp'}
+                      </a>
+                    </>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
                       setSubmitted(false);
                       setFormData({ name: '', email: '', subject: '', message: '' });
+                      setLastSubmitted(null);
                     }}
                     className="px-4 py-2.5 text-xs font-semibold text-zinc-500 hover:text-zinc-900 dark:hover:text-white underline cursor-pointer"
                   >
-                    {lang === 'so' ? 'Foom Cusub' : 'Reset Form'}
+                    {lang === 'so' ? 'Foom Cusub' : 'Send Another Message'}
                   </button>
                 </div>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+                {/* Honeypot field (hidden from legitimate users, traps bots) */}
+                <input
+                  type="text"
+                  name="user_organization_hp"
+                  value={honeypot}
+                  onChange={(e) => setHoneypot(e.target.value)}
+                  tabIndex={-1}
+                  autoComplete="off"
+                  className="absolute opacity-0 pointer-events-none -z-10 h-0 w-0"
+                  aria-hidden="true"
+                />
+
+                {/* Error Banner with input preservation */}
+                {errorMessage && (
+                  <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-start justify-between gap-2.5">
+                    <div className="flex items-start gap-2.5">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <p className="font-medium leading-relaxed">{errorMessage}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setErrorMessage(null)}
+                      className="text-red-500 hover:text-red-700 dark:hover:text-red-300 font-bold text-xs shrink-0 cursor-pointer p-0.5"
+                      title="Dismiss error"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label
@@ -288,10 +363,11 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ lang }) => {
                       id="contact-name"
                       type="text"
                       required
+                      disabled={isSubmitting}
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="Abdihakim..."
-                      className="w-full px-4 py-3 rounded-xl bg-zinc-900/[0.03] dark:bg-black/40 border border-zinc-900/15 dark:border-white/10 text-zinc-950 dark:text-white text-xs sm:text-sm focus:border-zinc-950 dark:focus:border-white focus:bg-white dark:focus:bg-black/60 focus:ring-2 focus:ring-zinc-950/10 dark:focus:ring-white/10 focus:outline-none transition-all"
+                      className="w-full px-4 py-3 rounded-xl bg-zinc-900/[0.03] dark:bg-black/40 border border-zinc-900/15 dark:border-white/10 text-zinc-950 dark:text-white text-xs sm:text-sm focus:border-zinc-950 dark:focus:border-white focus:bg-white dark:focus:bg-black/60 focus:ring-2 focus:ring-zinc-950/10 dark:focus:ring-white/10 focus:outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
 
@@ -306,10 +382,11 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ lang }) => {
                       id="contact-email"
                       type="email"
                       required
+                      disabled={isSubmitting}
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       placeholder="you@example.com"
-                      className="w-full px-4 py-3 rounded-xl bg-zinc-900/[0.03] dark:bg-black/40 border border-zinc-900/15 dark:border-white/10 text-zinc-950 dark:text-white text-xs sm:text-sm focus:border-zinc-950 dark:focus:border-white focus:bg-white dark:focus:bg-black/60 focus:ring-2 focus:ring-zinc-950/10 dark:focus:ring-white/10 focus:outline-none transition-all"
+                      className="w-full px-4 py-3 rounded-xl bg-zinc-900/[0.03] dark:bg-black/40 border border-zinc-900/15 dark:border-white/10 text-zinc-950 dark:text-white text-xs sm:text-sm focus:border-zinc-950 dark:focus:border-white focus:bg-white dark:focus:bg-black/60 focus:ring-2 focus:ring-zinc-950/10 dark:focus:ring-white/10 focus:outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -325,12 +402,13 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ lang }) => {
                     id="contact-subject"
                     type="text"
                     required
+                    disabled={isSubmitting}
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                     placeholder={
                       lang === 'so' ? 'Mowduuca fariintaada...' : 'Project collaboration or inquiry'
                     }
-                    className="w-full px-4 py-3 rounded-xl bg-zinc-900/[0.03] dark:bg-black/40 border border-zinc-900/15 dark:border-white/10 text-zinc-950 dark:text-white text-xs sm:text-sm focus:border-zinc-950 dark:focus:border-white focus:bg-white dark:focus:bg-black/60 focus:ring-2 focus:ring-zinc-950/10 dark:focus:ring-white/10 focus:outline-none transition-all"
+                    className="w-full px-4 py-3 rounded-xl bg-zinc-900/[0.03] dark:bg-black/40 border border-zinc-900/15 dark:border-white/10 text-zinc-950 dark:text-white text-xs sm:text-sm focus:border-zinc-950 dark:focus:border-white focus:bg-white dark:focus:bg-black/60 focus:ring-2 focus:ring-zinc-950/10 dark:focus:ring-white/10 focus:outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -345,19 +423,30 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ lang }) => {
                     id="contact-message"
                     required
                     rows={4}
+                    disabled={isSubmitting}
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                     placeholder={t.form.message}
-                    className="w-full px-4 py-3 rounded-xl bg-zinc-900/[0.03] dark:bg-black/40 border border-zinc-900/15 dark:border-white/10 text-zinc-950 dark:text-white text-xs sm:text-sm focus:border-zinc-950 dark:focus:border-white focus:bg-white dark:focus:bg-black/60 focus:ring-2 focus:ring-zinc-950/10 dark:focus:ring-white/10 focus:outline-none transition-all resize-none"
+                    className="w-full px-4 py-3 rounded-xl bg-zinc-900/[0.03] dark:bg-black/40 border border-zinc-900/15 dark:border-white/10 text-zinc-950 dark:text-white text-xs sm:text-sm focus:border-zinc-950 dark:focus:border-white focus:bg-white dark:focus:bg-black/60 focus:ring-2 focus:ring-zinc-950/10 dark:focus:ring-white/10 focus:outline-none transition-all resize-none disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full group inline-flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl font-semibold text-xs uppercase tracking-[0.16em] bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 shadow-sm hover:scale-[1.01] active:scale-[0.99] transition-all duration-300 cursor-pointer"
+                  disabled={isSubmitting}
+                  className="w-full group inline-flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl font-semibold text-xs uppercase tracking-[0.16em] bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-100 shadow-sm hover:scale-[1.01] active:scale-[0.99] transition-all duration-300 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
-                  <Send className="w-3.5 h-3.5 group-hover:translate-x-1 group-hover:-translate-y-0.5 transition-transform" />
-                  <span>{t.form.submit}</span>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>{lang === 'so' ? 'Waa la dirayaa...' : 'Sending...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5 group-hover:translate-x-1 group-hover:-translate-y-0.5 transition-transform" />
+                      <span>{t.form.submit}</span>
+                    </>
+                  )}
                 </button>
               </form>
             )}

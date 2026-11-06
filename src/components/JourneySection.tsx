@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { Language } from '../types';
 import { translations } from '../data/translations';
-import { PORTFOLIO_OWNER } from '../data/portfolioData';
+import { usePortfolioData } from '../context/PortfolioDataContext';
 import justCrestImg from '../assets/images/just_crest.png';
 
 interface JourneySectionProps {
@@ -20,6 +20,7 @@ interface JourneySectionProps {
 }
 
 export const JourneySection: React.FC<JourneySectionProps> = ({ lang }) => {
+  const { owner } = usePortfolioData();
   const t = translations[lang].journey;
 
   const curriculumPillars = [
@@ -227,7 +228,7 @@ export const JourneySection: React.FC<JourneySectionProps> = ({ lang }) => {
                         {lang === 'so' ? 'ARDAYGA' : 'STUDENT CANDIDATE'}
                       </span>
                       <p className="text-base font-extrabold text-white tracking-wide">
-                        {PORTFOLIO_OWNER.fullName}
+                        {owner.fullName}
                       </p>
                       <p className="text-xs text-zinc-400 font-mono">
                         Eng Abdihakim Hassan
