@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -20,6 +20,15 @@ import {
 import { auth, db } from '../firebaseConfig';
 import { Project } from '../types';
 import { PORTFOLIO_OWNER, PROJECTS_DATA } from '../data/portfolioData';
+import {
+  subscribeToProjects,
+  saveProjectToFirestore,
+  deleteProjectFromFirestore,
+  fetchProjectsFromFirestore,
+  downloadProjectsBackupFile,
+  compareProjectsLocalVsCloud,
+  ProjectConflictSummary,
+} from '../services/projectService';
 
 export type PortfolioOwnerData = typeof PORTFOLIO_OWNER;
 
@@ -85,14 +94,18 @@ interface PortfolioContextType {
   loginWithGoogle: () => Promise<LoginResult>;
   logout: () => Promise<void>;
   updateOwner: (updated: Partial<PortfolioOwnerData>) => void;
-  addProject: (project: Project) => void;
-  updateProject: (id: string, updated: Partial<Project>) => void;
-  deleteProject: (id: string) => void;
+  addProject: (project: Project) => Promise<void>;
+  updateProject: (id: string, updated: Partial<Project>) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
   addInquiry: (inquiry: { name: string; email: string; subject: string; message: string }) => void;
   deleteInquiry: (id: string) => void;
   markInquiryRead: (id: string) => void;
   importDatabase: (jsonString: string) => boolean;
   resetToDefaults: () => void;
+  projectsSyncStatus: 'synced' | 'connecting' | 'offline' | 'error' | 'idle';
+  projectsSyncError: string | null;
+  exportProjectsBackup: () => void;
+  compareLocalProjectsWithCloud: () => Promise<ProjectConflictSummary>;
 }
 
 const STORAGE_KEYS = {
@@ -289,6 +302,62 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [isAdminLoggedIn]);
 
+  // Projects cloud sync & offline cache state
+  const [projectsSyncStatus, setProjectsSyncStatus] = useState<
+    'synced' | 'connecting' | 'offline' | 'error' | 'idle'
+  >('idle');
+  const [projectsSyncError, setProjectsSyncError] = useState<string | null>(null);
+
+  // Authoritative reference and sequence counter guarding against rollback race conditions
+  const latestProjectsRef = useRef<Project[]>(projects);
+  const snapshotSeqRef = useRef<number>(0);
+
+  // Keep latestProjectsRef aligned on direct projects updates
+  useEffect(() => {
+    latestProjectsRef.current = projects;
+  }, [projects]);
+
+  // Real-time Firestore synchronization for /projects collection
+  useEffect(() => {
+    setProjectsSyncStatus('connecting');
+
+    const unsubscribe = subscribeToProjects(
+      (liveProjects) => {
+        if (liveProjects && liveProjects.length > 0) {
+          // Increment sequence counter to mark fresh authoritative cloud emission
+          snapshotSeqRef.current += 1;
+          latestProjectsRef.current = liveProjects;
+          setProjects(liveProjects);
+          setProjectsSyncStatus('synced');
+          setProjectsSyncError(null);
+
+          // Write-through cache to localStorage
+          try {
+            const saved = localStorage.getItem(STORAGE_KEYS.DB);
+            const currentDb = saved ? JSON.parse(saved) : {};
+            localStorage.setItem(
+              STORAGE_KEYS.DB,
+              JSON.stringify({ ...currentDb, projects: liveProjects })
+            );
+          } catch (e) {
+            console.warn('Failed to update projects cache in localStorage', e);
+          }
+        } else {
+          // Cloud collection is currently empty: DO NOT auto-seed or overwrite.
+          // Maintain local cached projects and register status as idle.
+          setProjectsSyncStatus('idle');
+        }
+      },
+      (error) => {
+        console.warn('[PortfolioContext] Firestore projects subscription fallback:', error);
+        setProjectsSyncStatus('offline');
+        setProjectsSyncError(error.message || 'Offline or network failure');
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
   // Save cached content for offline resilience
   const persistState = (newOwner: PortfolioOwnerData, newProjects: Project[], newInquiries: Inquiry[]) => {
     try {
@@ -435,40 +504,121 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   };
 
-  const addProject = (project: Project) => {
+  const addProject = async (project: Project): Promise<void> => {
     if (!isAdminLoggedIn) {
       console.warn('Unauthorized operation attempted: addProject');
-      return;
+      throw new Error('Access Denied: Administrator authentication is required to add projects.');
     }
-    setProjects((prev) => {
-      const next = [project, ...prev];
+
+    // Capture sequence number and baseline snapshot at mutation initiation
+    const startSeq = snapshotSeqRef.current;
+    const preMutationProjects = latestProjectsRef.current;
+
+    try {
+      // 1. Authoritative write to Firestore /projects/{id}
+      await saveProjectToFirestore(project);
+
+      // 2. On successful write: derive next state from latest authoritative projects
+      const next = [project, ...latestProjectsRef.current.filter((p) => p.id !== project.id)];
+      latestProjectsRef.current = next;
+      setProjects(next);
       persistState(owner, next, inquiries);
-      return next;
-    });
+    } catch (err: any) {
+      console.error('[PortfolioDataContext] addProject failed:', err);
+
+      // 3. Rollback guard against race conditions:
+      // If a newer remote snapshot arrived while write was in flight (startSeq !== snapshotSeqRef.current),
+      // preserve the newer remote state (latestProjectsRef.current) rather than reverting to preMutationProjects.
+      const safeFallback = startSeq === snapshotSeqRef.current
+        ? preMutationProjects
+        : latestProjectsRef.current;
+
+      latestProjectsRef.current = safeFallback;
+      setProjects(safeFallback);
+      persistState(owner, safeFallback, inquiries);
+      throw new Error(`Failed to persist project in cloud: ${err?.message || 'Network error'}`);
+    }
   };
 
-  const updateProject = (id: string, updated: Partial<Project>) => {
+  const updateProject = async (id: string, updated: Partial<Project>): Promise<void> => {
     if (!isAdminLoggedIn) {
       console.warn('Unauthorized operation attempted: updateProject');
-      return;
+      throw new Error('Access Denied: Administrator authentication is required to update projects.');
     }
-    setProjects((prev) => {
-      const next = prev.map((p) => (p.id === id ? { ...p, ...updated } : p));
+
+    const target = latestProjectsRef.current.find((p) => p.id === id);
+    if (!target) {
+      throw new Error(`Target project "${id}" not found.`);
+    }
+
+    const startSeq = snapshotSeqRef.current;
+    const preMutationProjects = latestProjectsRef.current;
+    const mergedProject: Project = { ...target, ...updated, id };
+
+    try {
+      // 1. Authoritative update to Firestore
+      await saveProjectToFirestore(mergedProject);
+
+      // 2. On successful write: derive next state from latest authoritative projects
+      const next = latestProjectsRef.current.map((p) => (p.id === id ? mergedProject : p));
+      latestProjectsRef.current = next;
+      setProjects(next);
       persistState(owner, next, inquiries);
-      return next;
-    });
+    } catch (err: any) {
+      console.error('[PortfolioDataContext] updateProject failed:', err);
+
+      // 3. Rollback guard against race conditions:
+      const safeFallback = startSeq === snapshotSeqRef.current
+        ? preMutationProjects
+        : latestProjectsRef.current;
+
+      latestProjectsRef.current = safeFallback;
+      setProjects(safeFallback);
+      persistState(owner, safeFallback, inquiries);
+      throw new Error(`Failed to update project in cloud: ${err?.message || 'Network error'}`);
+    }
   };
 
-  const deleteProject = (id: string) => {
+  const deleteProject = async (id: string): Promise<void> => {
     if (!isAdminLoggedIn) {
       console.warn('Unauthorized operation attempted: deleteProject');
-      return;
+      throw new Error('Access Denied: Administrator authentication is required to delete projects.');
     }
-    setProjects((prev) => {
-      const next = prev.filter((p) => p.id !== id);
+
+    const startSeq = snapshotSeqRef.current;
+    const preMutationProjects = latestProjectsRef.current;
+
+    try {
+      // 1. Authoritative deletion from Firestore
+      await deleteProjectFromFirestore(id);
+
+      // 2. On successful write: derive next state from latest authoritative projects
+      const next = latestProjectsRef.current.filter((p) => p.id !== id);
+      latestProjectsRef.current = next;
+      setProjects(next);
       persistState(owner, next, inquiries);
-      return next;
-    });
+    } catch (err: any) {
+      console.error('[PortfolioDataContext] deleteProject failed:', err);
+
+      // 3. Rollback guard against race conditions:
+      const safeFallback = startSeq === snapshotSeqRef.current
+        ? preMutationProjects
+        : latestProjectsRef.current;
+
+      latestProjectsRef.current = safeFallback;
+      setProjects(safeFallback);
+      persistState(owner, safeFallback, inquiries);
+      throw new Error(`Failed to delete project from cloud: ${err?.message || 'Network error'}`);
+    }
+  };
+
+  const exportProjectsBackup = () => {
+    downloadProjectsBackupFile(projects);
+  };
+
+  const compareLocalProjectsWithCloud = async (): Promise<ProjectConflictSummary> => {
+    const cloudProjects = await fetchProjectsFromFirestore();
+    return compareProjectsLocalVsCloud(projects, cloudProjects);
   };
 
   const addInquiry = (inquiry: { name: string; email: string; subject: string; message: string }) => {
@@ -597,6 +747,10 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         markInquiryRead,
         importDatabase,
         resetToDefaults,
+        projectsSyncStatus,
+        projectsSyncError,
+        exportProjectsBackup,
+        compareLocalProjectsWithCloud,
       }}
     >
       {children}
