@@ -903,6 +903,18 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
 
             {/* Quick Action Buttons */}
             <div className="flex items-center gap-2.5 flex-wrap">
+              {projectsSyncStatus !== 'synced' && (
+                <button
+                  type="button"
+                  onClick={handleMigrateProjectsToCloud}
+                  disabled={isMigratingCloud}
+                  className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
+                  title="Push projects to Cloud Firestore"
+                >
+                  {isMigratingCloud ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  <span>{lang === 'so' ? 'Ku Shub Cloud' : 'Sync to Cloud'}</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -1535,18 +1547,64 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingProject(null);
-                        setIsCreatingProject(true);
-                      }}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-bold shadow-sm transition-all cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>{lang === 'so' ? '+ Kudar Mashruuc Cusub' : '+ Add New Project'}</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleMigrateProjectsToCloud}
+                        disabled={isMigratingCloud}
+                        className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+                        title="Sync Projects to Cloud Firestore"
+                      >
+                        {isMigratingCloud ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                        <span>{lang === 'so' ? 'Ku Shub Cloud' : 'Sync to Cloud'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingProject(null);
+                          setIsCreatingProject(true);
+                        }}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-950 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-bold shadow-sm transition-all cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>{lang === 'so' ? '+ Kudar Mashruuc Cusub' : '+ Add New Project'}</span>
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Cloud Sync Alert Banner if not yet synced */}
+                  {projectsSyncStatus !== 'synced' && (
+                    <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex items-center justify-between flex-wrap gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0">
+                          <Database className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-900 dark:text-white">
+                            {lang === 'so'
+                              ? 'Mashruucyadu waxay hadda ku jiraan Local Cache (Browser-kaaga)'
+                              : 'Projects are currently stored in Local Cache'}
+                          </p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            {lang === 'so'
+                              ? 'Guji batoonkan si aad 3-da mashruuc toos ugu shubto Google Cloud Firestore.'
+                              : 'Click here to synchronize all projects to Google Cloud Firestore (/projects).'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleMigrateProjectsToCloud}
+                        disabled={isMigratingCloud}
+                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                      >
+                        {isMigratingCloud ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                        <span>{lang === 'so' ? 'Hada Ku Shub Cloud Firestore' : 'Push to Cloud Firestore Now'}</span>
+                      </button>
+                    </div>
+                  )}
 
                   {/* 3-Cards Per Row */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
