@@ -1,5 +1,5 @@
 // Tuko Service Worker for PWA Instant Startup & Offline Resilience
-const CACHE_NAME = 'tuko-pwa-v58-cloud-sync';
+const CACHE_NAME = 'tuko-pwa-v59-cloud-sync-fix';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',

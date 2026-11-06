@@ -80,6 +80,7 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
     projectsSyncError,
     exportProjectsBackup,
     compareLocalProjectsWithCloud,
+    setIsSignInModalOpen,
   } = usePortfolioData();
 
   const { theme, setTheme } = useTheme();
@@ -161,12 +162,13 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isDashboardModalOpen, editingProject, isCreatingProject, selectedInquiry, setIsDashboardModalOpen]);
 
-  // Security gate: Auto-close if auth check completed and user is not verified admin
+  // Security gate: Auto-close if auth check completed and user is not verified admin, and smoothly route to Sign-In
   useEffect(() => {
     if (!isAuthChecking && isDashboardModalOpen && !isAdminLoggedIn) {
       setIsDashboardModalOpen(false);
+      setIsSignInModalOpen(true);
     }
-  }, [isDashboardModalOpen, isAdminLoggedIn, isAuthChecking, setIsDashboardModalOpen]);
+  }, [isDashboardModalOpen, isAdminLoggedIn, isAuthChecking, setIsDashboardModalOpen, setIsSignInModalOpen]);
 
   if (!isDashboardModalOpen) return null;
 

@@ -258,6 +258,27 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => unsubscribe();
   }, []);
 
+  // Synchronize URL hash with Auth & Dashboard modals
+  useEffect(() => {
+    const handleHash = () => {
+      if (window.location.hash === '#dashboard') {
+        if (!isAuthChecking) {
+          if (isAdminLoggedIn) {
+            setIsDashboardModalOpenState(true);
+            setIsSignInModalOpen(false);
+          } else {
+            setIsDashboardModalOpenState(false);
+            setIsSignInModalOpen(true);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('hashchange', handleHash);
+    handleHash();
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, [isAdminLoggedIn, isAuthChecking]);
+
   // Real-time Firestore sync for genuine contact submissions when admin is authenticated
   useEffect(() => {
     if (!isAdminLoggedIn) return;
