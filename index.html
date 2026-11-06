@@ -16,6 +16,24 @@
         } catch (e) {
           document.documentElement.classList.add('dark');
         }
+
+        // Clean legacy caches and unregister obsolete service workers
+        try {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+              for (var i = 0; i < regs.length; i++) {
+                regs[i].unregister();
+              }
+            });
+          }
+          if ('caches' in window) {
+            caches.keys().then(function(names) {
+              for (var j = 0; j < names.length; j++) {
+                caches.delete(names[j]);
+              }
+            });
+          }
+        } catch (err) {}
       })();
     </script>
     <title>Abdihakim Hassan Mohamud (Eng Abdihakim Hassan) | Software Engineering Student @ JUST</title>
