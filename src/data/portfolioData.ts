@@ -5,7 +5,7 @@ import shaqokaabBrandImg from '../assets/images/project_shaqokaab_brand.jpg';
 import shaqokaabAtsImg from '../assets/images/project_shaqokaab_ats.jpg';
 import tukoPosterImg from '../assets/images/project_tuko_poster.jpg';
 import hubaalImg from '../assets/images/project_fintech_platform_1791984897116.jpg';
-import devCloudImg from '../assets/images/project_cloud_mesh_1791984895646.jpg';
+import abdihakimDevImg from '../assets/images/project_abdihakim_dev.jpg';
 
 export const PORTFOLIO_OWNER = {
   fullName: 'Abdihakim Hassan Mohamud',
@@ -190,7 +190,7 @@ export const PROJECTS_DATA: Project[] = [
       en: 'Abdihakim.Dev · Live Platform',
     },
     stackLabel: 'REACT 19 · TYPESCRIPT · TAILWIND CSS · CLOUD FIRESTORE · FIREBASE AUTH',
-    image: devCloudImg,
+    image: abdihakimDevImg,
     year: '2026',
     client: 'Self-Initiated / Abdihakim Hassan',
     featured: true,

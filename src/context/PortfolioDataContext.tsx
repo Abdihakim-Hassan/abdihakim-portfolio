@@ -258,6 +258,12 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             if (!existingIds.has(baseProj.id) && !deletedSet.has(baseProj.id)) {
               sanitized.push(baseProj);
               changed = true;
+            } else if (existingIds.has(baseProj.id) && baseProj.id === 'abdihakim-dev') {
+              const targetIdx = sanitized.findIndex((p) => p.id === 'abdihakim-dev');
+              if (targetIdx !== -1 && sanitized[targetIdx].image !== baseProj.image) {
+                sanitized[targetIdx] = { ...sanitized[targetIdx], image: baseProj.image };
+                changed = true;
+              }
             }
           }
           if (changed) {
