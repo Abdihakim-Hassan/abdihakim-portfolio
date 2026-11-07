@@ -212,28 +212,44 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, []);
 
-  // Authoritative Firebase Auth State Listener
+  // Authoritative Firebase Auth State Listener with safety timeout against network hangs
   useEffect(() => {
+    const authSafetyTimer = window.setTimeout(() => {
+      setIsAuthChecking(false);
+    }, 2500);
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      window.clearTimeout(authSafetyTimer);
       setIsAuthChecking(true);
-      if (user) {
-        setCurrentUser(user);
-        const authorized = await verifyAdminAuthorization(user);
-        if (authorized) {
-          setIsAdminLoggedIn(true);
-          // Restore open dashboard state on page refresh if previously open
-          try {
-            const wasOpen =
-              sessionStorage.getItem('portfolio_dashboard_open') === 'true' ||
-              window.location.hash === '#dashboard';
-            if (wasOpen) {
-              setIsDashboardModalOpenState(true);
+      try {
+        if (user) {
+          setCurrentUser(user);
+          const authorized = await verifyAdminAuthorization(user);
+          if (authorized) {
+            setIsAdminLoggedIn(true);
+            // Restore open dashboard state on page refresh if previously open
+            try {
+              const wasOpen =
+                sessionStorage.getItem('portfolio_dashboard_open') === 'true' ||
+                window.location.hash === '#dashboard';
+              if (wasOpen) {
+                setIsDashboardModalOpenState(true);
+              }
+            } catch {
+              // ignore
             }
-          } catch {
-            // ignore
+          } else {
+            // User is authenticated but NOT authorized as an admin
+            setIsAdminLoggedIn(false);
+            setIsDashboardModalOpenState(false);
+            try {
+              sessionStorage.removeItem('portfolio_dashboard_open');
+            } catch {
+              // ignore
+            }
           }
         } else {
-          // User is authenticated but NOT authorized as an admin
+          setCurrentUser(null);
           setIsAdminLoggedIn(false);
           setIsDashboardModalOpenState(false);
           try {
@@ -242,20 +258,15 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             // ignore
           }
         }
-      } else {
-        setCurrentUser(null);
-        setIsAdminLoggedIn(false);
-        setIsDashboardModalOpenState(false);
-        try {
-          sessionStorage.removeItem('portfolio_dashboard_open');
-        } catch {
-          // ignore
-        }
+      } finally {
+        setIsAuthChecking(false);
       }
-      setIsAuthChecking(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      window.clearTimeout(authSafetyTimer);
+      unsubscribe();
+    };
   }, []);
 
   // Synchronize URL hash with Auth & Dashboard modals
@@ -345,10 +356,34 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const unsubscribe = subscribeToProjects(
       (liveProjects) => {
         if (liveProjects && liveProjects.length > 0) {
-          // Increment sequence counter to mark fresh authoritative cloud emission
+          // Merge live cloud projects with any unmigrated local projects so partial cloud writes never wipe out local projects
+          const cloudMap = new Map(liveProjects.map((p) => [p.id, p]));
+          let deletedIds: string[] = [];
+          try {
+            const rawDeleted = localStorage.getItem('abdihakim_portfolio_deleted_ids');
+            if (rawDeleted) deletedIds = JSON.parse(rawDeleted);
+          } catch {
+            // ignore
+          }
+          const deletedSet = new Set(deletedIds);
+
+          const mergedList: Project[] = [...liveProjects.filter((p) => !deletedSet.has(p.id))];
+          for (const localProj of latestProjectsRef.current) {
+            if (!cloudMap.has(localProj.id) && !deletedSet.has(localProj.id)) {
+              mergedList.push(localProj);
+            }
+          }
+
+          mergedList.sort((a, b) => {
+            const idxA = a.index || '';
+            const idxB = b.index || '';
+            const cmp = idxA.localeCompare(idxB, undefined, { numeric: true });
+            return cmp !== 0 ? cmp : a.id.localeCompare(b.id);
+          });
+
           snapshotSeqRef.current += 1;
-          latestProjectsRef.current = liveProjects;
-          setProjects(liveProjects);
+          latestProjectsRef.current = mergedList;
+          setProjects(mergedList);
           setProjectsSyncStatus('synced');
           setProjectsSyncError(null);
 
@@ -358,7 +393,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             const currentDb = saved ? JSON.parse(saved) : {};
             localStorage.setItem(
               STORAGE_KEYS.DB,
-              JSON.stringify({ ...currentDb, projects: liveProjects })
+              JSON.stringify({ ...currentDb, projects: mergedList })
             );
           } catch (e) {
             console.warn('Failed to update projects cache in localStorage', e);
@@ -531,33 +566,47 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       throw new Error('Access Denied: Administrator authentication is required to add projects.');
     }
 
-    // Capture sequence number and baseline snapshot at mutation initiation
-    const startSeq = snapshotSeqRef.current;
-    const preMutationProjects = latestProjectsRef.current;
+    // 1. Immediately update local state and localStorage so the new project is visible right away
+    try {
+      const rawDeleted = localStorage.getItem('abdihakim_portfolio_deleted_ids');
+      if (rawDeleted) {
+        const deletedIds: string[] = JSON.parse(rawDeleted);
+        localStorage.setItem(
+          'abdihakim_portfolio_deleted_ids',
+          JSON.stringify(deletedIds.filter((dId) => dId !== project.id))
+        );
+      }
+    } catch {
+      // ignore
+    }
+
+    const existingList = latestProjectsRef.current.filter((p) => p.id !== project.id);
+    const next = [...existingList, project].sort((a, b) => {
+      const idxA = a.index || '';
+      const idxB = b.index || '';
+      const cmp = idxA.localeCompare(idxB, undefined, { numeric: true });
+      return cmp !== 0 ? cmp : a.id.localeCompare(b.id);
+    });
+
+    latestProjectsRef.current = next;
+    setProjects(next);
+    persistState(owner, next, inquiries);
 
     try {
-      // 1. Authoritative write to Firestore /projects/{id}
-      await saveProjectToFirestore(project);
-
-      // 2. On successful write: derive next state from latest authoritative projects
-      const next = [project, ...latestProjectsRef.current.filter((p) => p.id !== project.id)];
-      latestProjectsRef.current = next;
-      setProjects(next);
-      persistState(owner, next, inquiries);
+      // 2. Sync to Cloud Firestore (if cloud was empty/idle, also sync existing baseline projects so none are lost)
+      if (projectsSyncStatus !== 'synced') {
+        for (const p of next) {
+          await saveProjectToFirestore(p);
+        }
+      } else {
+        await saveProjectToFirestore(project);
+      }
+      setProjectsSyncStatus('synced');
+      setProjectsSyncError(null);
     } catch (err: any) {
-      console.error('[PortfolioDataContext] addProject failed:', err);
-
-      // 3. Rollback guard against race conditions:
-      // If a newer remote snapshot arrived while write was in flight (startSeq !== snapshotSeqRef.current),
-      // preserve the newer remote state (latestProjectsRef.current) rather than reverting to preMutationProjects.
-      const safeFallback = startSeq === snapshotSeqRef.current
-        ? preMutationProjects
-        : latestProjectsRef.current;
-
-      latestProjectsRef.current = safeFallback;
-      setProjects(safeFallback);
-      persistState(owner, safeFallback, inquiries);
-      throw new Error(`Failed to persist project in cloud: ${err?.message || 'Network error'}`);
+      console.warn('[PortfolioDataContext] Cloud sync warning on addProject (saved locally):', err);
+      setProjectsSyncStatus('offline');
+      setProjectsSyncError(err?.message || 'Saved locally (Cloud sync pending)');
     }
   };
 
@@ -572,31 +621,37 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       throw new Error(`Target project "${id}" not found.`);
     }
 
-    const startSeq = snapshotSeqRef.current;
-    const preMutationProjects = latestProjectsRef.current;
     const mergedProject: Project = { ...target, ...updated, id };
 
+    // 1. Immediately update local state and localStorage so edits appear right away
+    const next = latestProjectsRef.current
+      .map((p) => (p.id === id ? mergedProject : p))
+      .sort((a, b) => {
+        const idxA = a.index || '';
+        const idxB = b.index || '';
+        const cmp = idxA.localeCompare(idxB, undefined, { numeric: true });
+        return cmp !== 0 ? cmp : a.id.localeCompare(b.id);
+      });
+
+    latestProjectsRef.current = next;
+    setProjects(next);
+    persistState(owner, next, inquiries);
+
     try {
-      // 1. Authoritative update to Firestore
-      await saveProjectToFirestore(mergedProject);
-
-      // 2. On successful write: derive next state from latest authoritative projects
-      const next = latestProjectsRef.current.map((p) => (p.id === id ? mergedProject : p));
-      latestProjectsRef.current = next;
-      setProjects(next);
-      persistState(owner, next, inquiries);
+      // 2. Sync to Cloud Firestore
+      if (projectsSyncStatus !== 'synced') {
+        for (const p of next) {
+          await saveProjectToFirestore(p);
+        }
+      } else {
+        await saveProjectToFirestore(mergedProject);
+      }
+      setProjectsSyncStatus('synced');
+      setProjectsSyncError(null);
     } catch (err: any) {
-      console.error('[PortfolioDataContext] updateProject failed:', err);
-
-      // 3. Rollback guard against race conditions:
-      const safeFallback = startSeq === snapshotSeqRef.current
-        ? preMutationProjects
-        : latestProjectsRef.current;
-
-      latestProjectsRef.current = safeFallback;
-      setProjects(safeFallback);
-      persistState(owner, safeFallback, inquiries);
-      throw new Error(`Failed to update project in cloud: ${err?.message || 'Network error'}`);
+      console.warn('[PortfolioDataContext] Cloud sync warning on updateProject (saved locally):', err);
+      setProjectsSyncStatus('offline');
+      setProjectsSyncError(err?.message || 'Saved locally (Cloud sync pending)');
     }
   };
 
@@ -606,30 +661,30 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       throw new Error('Access Denied: Administrator authentication is required to delete projects.');
     }
 
-    const startSeq = snapshotSeqRef.current;
-    const preMutationProjects = latestProjectsRef.current;
+    // 1. Record deleted ID and immediately remove from local state + localStorage
+    try {
+      const rawDeleted = localStorage.getItem('abdihakim_portfolio_deleted_ids');
+      const deletedIds: string[] = rawDeleted ? JSON.parse(rawDeleted) : [];
+      if (!deletedIds.includes(id)) {
+        deletedIds.push(id);
+        localStorage.setItem('abdihakim_portfolio_deleted_ids', JSON.stringify(deletedIds));
+      }
+    } catch {
+      // ignore
+    }
+
+    const next = latestProjectsRef.current.filter((p) => p.id !== id);
+    latestProjectsRef.current = next;
+    setProjects(next);
+    persistState(owner, next, inquiries);
 
     try {
-      // 1. Authoritative deletion from Firestore
+      // 2. Attempt deletion from Cloud Firestore
       await deleteProjectFromFirestore(id);
-
-      // 2. On successful write: derive next state from latest authoritative projects
-      const next = latestProjectsRef.current.filter((p) => p.id !== id);
-      latestProjectsRef.current = next;
-      setProjects(next);
-      persistState(owner, next, inquiries);
     } catch (err: any) {
-      console.error('[PortfolioDataContext] deleteProject failed:', err);
-
-      // 3. Rollback guard against race conditions:
-      const safeFallback = startSeq === snapshotSeqRef.current
-        ? preMutationProjects
-        : latestProjectsRef.current;
-
-      latestProjectsRef.current = safeFallback;
-      setProjects(safeFallback);
-      persistState(owner, safeFallback, inquiries);
-      throw new Error(`Failed to delete project from cloud: ${err?.message || 'Network error'}`);
+      console.warn('[PortfolioDataContext] Cloud sync warning on deleteProject (deleted locally):', err);
+      setProjectsSyncStatus('offline');
+      setProjectsSyncError(err?.message || 'Deleted locally (Cloud sync pending)');
     }
   };
 
@@ -733,9 +788,11 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     try {
       localStorage.removeItem(STORAGE_KEYS.DB);
+      localStorage.removeItem('abdihakim_portfolio_deleted_ids');
     } catch (e) {
       console.error(e);
     }
+    latestProjectsRef.current = PROJECTS_DATA;
     setOwner(PORTFOLIO_OWNER);
     setProjects(PROJECTS_DATA);
     setInquiries(INITIAL_INQUIRIES);

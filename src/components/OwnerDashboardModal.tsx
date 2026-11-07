@@ -172,16 +172,14 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
 
   if (!isDashboardModalOpen) return null;
 
-  // Show clean verification splash while Firebase auth rehydrates on page refresh
+  // Show non-blocking verification badge while Firebase auth rehydrates on page refresh (never black out the screen)
   if (!isAdminLoggedIn && isAuthChecking) {
     return (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#f8f9fa] dark:bg-[#0c0d11]">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-zinc-950 dark:text-white" />
-          <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest">
-            {lang === 'so' ? 'Waa la xaqiijinayaa...' : 'Verifying Admin Session...'}
-          </p>
-        </div>
+      <div className="fixed top-6 right-6 z-[9999] flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white/95 dark:bg-[#13151b]/95 border border-zinc-900/15 dark:border-white/15 shadow-xl backdrop-blur-md">
+        <Loader2 className="w-4 h-4 animate-spin text-zinc-950 dark:text-white" />
+        <p className="text-xs font-mono text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+          {lang === 'so' ? 'Waa la xaqiijinayaa...' : 'Verifying Admin Session...'}
+        </p>
       </div>
     );
   }
@@ -2287,17 +2285,19 @@ interface ProjectFormProps {
 }
 
 const ProjectForm: React.FC<ProjectFormProps> = ({ project, isCreating, lang, onSave, onCancel }) => {
+  const { projects } = usePortfolioData();
   const [formData, setFormData] = useState<Project>(() => {
     if (project) return { ...project };
+    const nextIdx = String((projects?.length || 3) + 1).padStart(2, '0');
     return {
       id: `project-${Date.now()}`,
-      index: '04',
+      index: nextIdx,
       title: { so: '', en: '' },
       tagline: { so: '', en: '' },
       category: 'web',
-      categoryLabel: { so: 'Web Application', en: 'Web Application' },
+      categoryLabel: { so: 'Nidaamka Web-ka', en: 'Web Application' },
       stackLabel: 'REACT · NODE.JS · TYPESCRIPT · TAILWIND CSS',
-      image: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1000&auto=format&fit=crop',
+      image: '/images/project_shaqokaab_brand.jpg',
       year: new Date().getFullYear().toString(),
       client: 'Self-Initiated / Client',
       featured: true,
@@ -2319,8 +2319,16 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, isCreating, lang, on
 
   const handleTechChange = (val: string) => {
     setTechInput(val);
-    const parsed = val.split(',').map((s) => s.trim()).filter(Boolean);
-    setFormData((prev) => ({ ...prev, technologies: parsed }));
+    const parsed = val
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 6);
+    setFormData((prev) => ({
+      ...prev,
+      technologies: parsed,
+      stackLabel: parsed.slice(0, 4).join(' · ').toUpperCase() || prev.stackLabel,
+    }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -2329,19 +2337,31 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, isCreating, lang, on
       alert('Please provide a project title');
       return;
     }
+    const cleanIndex = String(formData.index || '01').replace(/^#+/, '').trim() || '01';
+    const enTitle = formData.title?.en || formData.title?.so || 'Untitled Project';
+    const soTitle = formData.title?.so || formData.title?.en || enTitle;
+    const enTagline = formData.tagline?.en || formData.tagline?.so || enTitle;
+    const soTagline = formData.tagline?.so || formData.tagline?.en || soTitle;
+    const enOverview = formData.overview?.en || formData.overview?.so || enTagline;
+    const soOverview = formData.overview?.so || formData.overview?.en || soTagline;
+
     const finalProject: Project = {
       ...formData,
-      title: {
-        en: formData.title?.en || formData.title?.so || 'Untitled Project',
-        so: formData.title?.so || formData.title?.en || 'Mashruuc aan la magacaabin',
+      index: cleanIndex,
+      title: { en: enTitle, so: soTitle },
+      tagline: { en: enTagline, so: soTagline },
+      overview: { en: enOverview, so: soOverview },
+      architecture: {
+        en: formData.architecture?.en || formData.architecture?.so || `Built with ${ (formData.technologies || []).join(', ') || 'modern full-stack architecture' }.`,
+        so: formData.architecture?.so || formData.architecture?.en || `Waxaa lagu dhisay ${(formData.technologies || []).join(', ') || 'qaab-dhismeed casri ah'}.`,
       },
-      tagline: {
-        en: formData.tagline?.en || formData.tagline?.so || '',
-        so: formData.tagline?.so || formData.tagline?.en || '',
+      challenge: {
+        en: formData.challenge?.en || formData.challenge?.so || enOverview,
+        so: formData.challenge?.so || formData.challenge?.en || soOverview,
       },
-      overview: {
-        en: formData.overview?.en || formData.overview?.so || formData.tagline?.en || '',
-        so: formData.overview?.so || formData.overview?.en || formData.tagline?.so || '',
+      solution: {
+        en: formData.solution?.en || formData.solution?.so || enTagline,
+        so: formData.solution?.so || formData.solution?.en || soTagline,
       },
     };
     onSave(finalProject);
@@ -2512,17 +2532,70 @@ const ProjectForm: React.FC<ProjectFormProps> = ({ project, isCreating, lang, on
         </div>
       </div>
 
-      <div>
-        <label className="block text-[11px] font-mono uppercase text-slate-600 dark:text-slate-400 font-semibold mb-1">
-          Image URL or Path
-        </label>
-        <input
-          type="text"
-          value={formData.image || ''}
-          onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-          className="w-full px-3 py-2 rounded-xl bg-slate-50/80 dark:bg-[#0e1017] border border-slate-300 dark:border-white/[0.12] text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-[#0e1017] focus:border-zinc-950 dark:focus:border-white focus:ring-2 focus:ring-zinc-950/10 dark:focus:ring-white/10 transition-all outline-none shadow-2xs"
-          required
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-[11px] font-mono uppercase text-slate-600 dark:text-slate-400 font-semibold mb-1">
+            Overview / Description (English)
+          </label>
+          <textarea
+            rows={3}
+            value={formData.overview?.en || ''}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                overview: { ...formData.overview, en: e.target.value, so: formData.overview?.so || '' },
+              })
+            }
+            placeholder="Detailed project overview in English..."
+            className="w-full px-3 py-2 rounded-xl bg-slate-50/80 dark:bg-[#0e1017] border border-slate-300 dark:border-white/[0.12] text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-[#0e1017] focus:border-zinc-950 dark:focus:border-white focus:ring-2 focus:ring-zinc-950/10 dark:focus:ring-white/10 transition-all outline-none shadow-2xs"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-mono uppercase text-slate-600 dark:text-slate-400 font-semibold mb-1">
+            Overview / Faahfaahin (Somali)
+          </label>
+          <textarea
+            rows={3}
+            value={formData.overview?.so || ''}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                overview: { ...formData.overview, so: e.target.value, en: formData.overview?.en || '' },
+              })
+            }
+            placeholder="Faahfaahinta mashruuca oo Af-Soomaali ah..."
+            className="w-full px-3 py-2 rounded-xl bg-slate-50/80 dark:bg-[#0e1017] border border-slate-300 dark:border-white/[0.12] text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-[#0e1017] focus:border-zinc-950 dark:focus:border-white focus:ring-2 focus:ring-zinc-950/10 dark:focus:ring-white/10 transition-all outline-none shadow-2xs"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-[11px] font-mono uppercase text-slate-600 dark:text-slate-400 font-semibold mb-1">
+            Image URL or Path
+          </label>
+          <input
+            type="text"
+            value={formData.image || ''}
+            onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+            className="w-full px-3 py-2 rounded-xl bg-slate-50/80 dark:bg-[#0e1017] border border-slate-300 dark:border-white/[0.12] text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-[#0e1017] focus:border-zinc-950 dark:focus:border-white focus:ring-2 focus:ring-zinc-950/10 dark:focus:ring-white/10 transition-all outline-none shadow-2xs"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-mono uppercase text-slate-600 dark:text-slate-400 font-semibold mb-1">
+            Client / Organization
+          </label>
+          <input
+            type="text"
+            value={formData.client || ''}
+            onChange={(e) => setFormData({ ...formData, client: e.target.value })}
+            placeholder="e.g. ShaqoKaab Enterprise"
+            className="w-full px-3 py-2 rounded-xl bg-slate-50/80 dark:bg-[#0e1017] border border-slate-300 dark:border-white/[0.12] text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:bg-white dark:focus:bg-[#0e1017] focus:border-zinc-950 dark:focus:border-white focus:ring-2 focus:ring-zinc-950/10 dark:focus:ring-white/10 transition-all outline-none shadow-2xs"
+          />
+        </div>
       </div>
 
       <div>

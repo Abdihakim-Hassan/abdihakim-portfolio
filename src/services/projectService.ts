@@ -141,69 +141,108 @@ export function validateProjectForFirestore(project: Project): { valid: boolean;
   return { valid: true };
 }
 
+function normalizeUrlLink(raw?: string): string {
+  if (!raw || typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  if (
+    trimmed === '#' ||
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    (trimmed.startsWith('/') && !trimmed.startsWith('//'))
+  ) {
+    return trimmed.slice(0, 2000);
+  }
+  return `https://${trimmed}`.slice(0, 2000);
+}
+
 /**
  * Sanitizes a Project object into a plain record strictly containing only allowed keys.
  * Removes undefined or empty optional link fields so keys().hasOnly(...) passes.
+ * Normalizes index, URLs, technologies (max 6), metrics (max 3), and string bounds.
  * STRICTLY PREVENTS 'createdAt' or 'updatedAt' from being attached.
  */
 export function sanitizeProjectForFirestore(project: Project): Record<string, any> {
+  const rawIndex = String(project.index || '01').trim().replace(/^#+/, '').trim() || '01';
+  const enTitle = String(project.title?.en || project.title?.so || 'Untitled Project').trim().slice(0, 200);
+  const soTitle = String(project.title?.so || enTitle).trim().slice(0, 200);
+
+  const enTagline = String(project.tagline?.en || project.tagline?.so || '').trim().slice(0, 400);
+  const soTagline = String(project.tagline?.so || enTagline).trim().slice(0, 400);
+
+  const validCategories = ['web', 'ecommerce', 'cloud', 'design', 'ai', 'mobile', 'desktop'];
+  const category = validCategories.includes(project.category) ? project.category : 'web';
+
+  const enCatLabel = String(project.categoryLabel?.en || project.categoryLabel?.so || category.toUpperCase()).trim().slice(0, 60);
+  const soCatLabel = String(project.categoryLabel?.so || enCatLabel).trim().slice(0, 60);
+
+  const cleanedTechs = (Array.isArray(project.technologies) ? project.technologies : [])
+    .map((t) => String(t || '').trim().slice(0, 40))
+    .filter((t) => t.length > 0)
+    .slice(0, 6);
+
+  const cleanedMetrics = (Array.isArray(project.metrics) ? project.metrics : [])
+    .filter((m) => m && (m.value || m.label?.en || m.label?.so))
+    .slice(0, 3)
+    .map((m) => {
+      const mEn = String(m.label?.en || m.label?.so || 'Metric').trim().slice(0, 60);
+      const mSo = String(m.label?.so || mEn).trim().slice(0, 60);
+      return {
+        label: { so: mSo, en: mEn },
+        value: String(m.value || '—').trim().slice(0, 40),
+      };
+    });
+
   const payload: Record<string, any> = {
-    id: String(project.id).trim(),
-    index: String(project.index || '01').trim(),
+    id: String(project.id || `project-${Date.now()}`).trim().slice(0, 60),
+    index: rawIndex.slice(0, 10),
     title: {
-      so: String(project.title?.so || '').trim(),
-      en: String(project.title?.en || '').trim(),
+      so: soTitle,
+      en: enTitle,
     },
     tagline: {
-      so: String(project.tagline?.so || '').trim(),
-      en: String(project.tagline?.en || '').trim(),
+      so: soTagline,
+      en: enTagline,
     },
-    category: project.category || 'web',
+    category,
     categoryLabel: {
-      so: String(project.categoryLabel?.so || '').trim(),
-      en: String(project.categoryLabel?.en || '').trim(),
+      so: soCatLabel,
+      en: enCatLabel,
     },
-    stackLabel: String(project.stackLabel || '').trim(),
-    image: String(project.image || '').trim(),
-    year: String(project.year || '').trim(),
-    client: String(project.client || '').trim(),
+    stackLabel: String(project.stackLabel || cleanedTechs.slice(0, 3).join(' · ') || 'Full-Stack').trim().slice(0, 150),
+    image: String(project.image || '/images/project_shaqokaab_brand.jpg').trim().slice(0, 2000),
+    year: String(project.year || new Date().getFullYear()).trim().slice(0, 10),
+    client: String(project.client || 'Production System').trim().slice(0, 100),
     featured: Boolean(project.featured),
-    technologies: (project.technologies || []).slice(0, 6).map((t) => String(t).trim()),
-    metrics: (project.metrics || []).slice(0, 3).map((m) => ({
-      label: {
-        so: String(m.label?.so || '').trim(),
-        en: String(m.label?.en || '').trim(),
-      },
-      value: String(m.value || '').trim(),
-    })),
+    technologies: cleanedTechs,
+    metrics: cleanedMetrics,
     overview: {
-      so: String(project.overview?.so || '').trim(),
-      en: String(project.overview?.en || '').trim(),
+      so: String(project.overview?.so || project.overview?.en || soTagline).trim().slice(0, 3000),
+      en: String(project.overview?.en || project.overview?.so || enTagline).trim().slice(0, 3000),
     },
     architecture: {
-      so: String(project.architecture?.so || '').trim(),
-      en: String(project.architecture?.en || '').trim(),
+      so: String(project.architecture?.so || project.architecture?.en || '').trim().slice(0, 3000),
+      en: String(project.architecture?.en || project.architecture?.so || '').trim().slice(0, 3000),
     },
     challenge: {
-      so: String(project.challenge?.so || '').trim(),
-      en: String(project.challenge?.en || '').trim(),
+      so: String(project.challenge?.so || project.challenge?.en || '').trim().slice(0, 3000),
+      en: String(project.challenge?.en || project.challenge?.so || '').trim().slice(0, 3000),
     },
     solution: {
-      so: String(project.solution?.so || '').trim(),
-      en: String(project.solution?.en || '').trim(),
+      so: String(project.solution?.so || project.solution?.en || '').trim().slice(0, 3000),
+      en: String(project.solution?.en || project.solution?.so || '').trim().slice(0, 3000),
     },
   };
 
-  // Optional link fields: include ONLY if non-empty string to satisfy optLink() rule
-  if (project.demoUrl && typeof project.demoUrl === 'string' && project.demoUrl.trim().length > 0) {
-    payload.demoUrl = project.demoUrl.trim();
-  }
-  if (project.liveAppUrl && typeof project.liveAppUrl === 'string' && project.liveAppUrl.trim().length > 0) {
-    payload.liveAppUrl = project.liveAppUrl.trim();
-  }
-  if (project.githubUrl && typeof project.githubUrl === 'string' && project.githubUrl.trim().length > 0) {
-    payload.githubUrl = project.githubUrl.trim();
-  }
+  // Optional link fields: normalize and include ONLY if non-empty string to satisfy optLink() rule
+  const demoUrl = normalizeUrlLink(project.demoUrl);
+  if (demoUrl) payload.demoUrl = demoUrl;
+
+  const liveAppUrl = normalizeUrlLink(project.liveAppUrl);
+  if (liveAppUrl) payload.liveAppUrl = liveAppUrl;
+
+  const githubUrl = normalizeUrlLink(project.githubUrl);
+  if (githubUrl) payload.githubUrl = githubUrl;
 
   // Safety check: delete any prohibited keys that could accidentally exist
   delete payload.createdAt;
@@ -278,12 +317,12 @@ export async function fetchProjectsFromFirestore(): Promise<Project[]> {
  * Uses setDoc with deterministic document ID matching project.id.
  */
 export async function saveProjectToFirestore(project: Project): Promise<void> {
-  const validation = validateProjectForFirestore(project);
+  const payload = sanitizeProjectForFirestore(project);
+  const validation = validateProjectForFirestore(payload as Project);
   if (!validation.valid) {
     throw new Error(validation.error || 'Project data validation failed.');
   }
 
-  const payload = sanitizeProjectForFirestore(project);
   const docRef = doc(db, 'projects', payload.id);
   await setDoc(docRef, payload, { merge: false });
 }
