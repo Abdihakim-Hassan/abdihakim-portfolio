@@ -161,8 +161,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Owner Access / Dashboard Trigger */}
-            {isAdminLoggedIn ? (
+            {/* Owner Access / Dashboard Trigger (Visible ONLY when authenticated as Admin) */}
+            {isAdminLoggedIn && (
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
@@ -183,16 +183,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsSignInModalOpen(true)}
-                className="inline-flex items-center gap-1.5 h-8 sm:h-9 px-3 rounded-xl border border-zinc-900/15 dark:border-white/15 bg-zinc-900/[0.03] dark:bg-white/[0.03] hover:bg-zinc-900/[0.08] dark:hover:bg-white/[0.08] text-[11px] font-semibold text-zinc-800 dark:text-zinc-200 transition-all cursor-pointer whitespace-nowrap shrink-0"
-                title={lang === 'so' ? 'Galitaanka' : 'Sign In'}
-              >
-                <User className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                <span>{lang === 'so' ? 'Galitaanka' : 'Sign In'}</span>
-              </button>
             )}
 
             {/* Mobile Menu Button */}
@@ -230,8 +220,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </a>
                 );
               })}
-              {/* Owner Access Trigger in Mobile Menu */}
-              {isAdminLoggedIn ? (
+              {/* Owner Access Trigger in Mobile Menu (Visible ONLY when authenticated as Admin) */}
+              {isAdminLoggedIn && (
                 <div className="mt-1 flex items-center gap-2">
                   <button
                     type="button"
@@ -257,18 +247,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <span>{lang === 'so' ? 'Ka bax' : 'Sign Out'}</span>
                   </button>
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    setIsSignInModalOpen(true);
-                  }}
-                  className="mt-1 w-full py-2.5 rounded-xl border border-zinc-900/15 dark:border-white/15 bg-zinc-900/[0.03] dark:bg-white/[0.03] text-zinc-800 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
-                >
-                  <User className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
-                  <span>{lang === 'so' ? 'Galitaanka' : 'Sign In'}</span>
-                </button>
               )}
             </nav>
           </div>

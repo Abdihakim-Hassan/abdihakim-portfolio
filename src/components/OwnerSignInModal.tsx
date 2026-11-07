@@ -25,6 +25,17 @@ export const OwnerSignInModal: React.FC<OwnerSignInModalProps> = ({ lang }) => {
 
   if (!isSignInModalOpen) return null;
 
+  const handleClose = () => {
+    setIsSignInModalOpen(false);
+    if (typeof window !== 'undefined' && (window.location.hash === '#dashboard' || window.location.hash === '#admin')) {
+      try {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      } catch {
+        window.location.hash = '';
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -66,7 +77,7 @@ export const OwnerSignInModal: React.FC<OwnerSignInModalProps> = ({ lang }) => {
       role="dialog"
       aria-modal="true"
       className="fixed inset-0 z-[999] flex items-center justify-center p-4 sm:p-6 bg-black/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
-      onClick={() => setIsSignInModalOpen(false)}
+      onClick={handleClose}
     >
       <div
         className="relative w-full max-w-md rounded-2xl sm:rounded-3xl bg-white dark:bg-[#13151b] border border-zinc-900/15 dark:border-white/15 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
@@ -75,7 +86,7 @@ export const OwnerSignInModal: React.FC<OwnerSignInModalProps> = ({ lang }) => {
         {/* Close Button */}
         <button
           type="button"
-          onClick={() => setIsSignInModalOpen(false)}
+          onClick={handleClose}
           className="absolute top-5 right-5 w-9 h-9 rounded-xl border border-zinc-900/10 dark:border-white/10 flex items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-900/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
           aria-label="Close modal"
         >

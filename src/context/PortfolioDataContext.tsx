@@ -313,10 +313,8 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
   const [isDashboardModalOpen, setIsDashboardModalOpenState] = useState<boolean>(() => {
     try {
-      return (
-        sessionStorage.getItem('portfolio_dashboard_open') === 'true' ||
-        window.location.hash === '#dashboard'
-      );
+      const h = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
+      return h === '#dashboard' || h === '#admin';
     } catch {
       return false;
     }
@@ -403,7 +401,8 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Synchronize URL hash with Auth & Dashboard modals
   useEffect(() => {
     const handleHash = () => {
-      if (window.location.hash === '#dashboard') {
+      const h = typeof window !== 'undefined' ? window.location.hash.toLowerCase() : '';
+      if (h === '#dashboard' || h === '#admin') {
         if (!isAuthChecking) {
           if (isAdminLoggedIn) {
             setIsDashboardModalOpenState(true);
