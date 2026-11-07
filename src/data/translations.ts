@@ -45,12 +45,12 @@ export const translations = {
       bioParagraph1:
         'Waxaan ahay Abdihakim Hassan Mohamud (Eng Abdihakim Hassan), arday barta Software Engineering (Computer Application) oo dhigta Jaamacadda Jamhuriya (Jamhuriya University of Science and Technology - JUST) ee magaalada Muqdisho, Soomaaliya. Waxaan aad u xiiseeyaa u rogidda fikradaha iyo baahiyaha dhabta ah xalal dijitaal ah oo shaqeynaya.',
       bioParagraph2:
-        'Intii aan ku guda jiray waxbarashadayda iyo tababarkayga, waxaan gacanta ku dhisay 2 barnaamij oo toos u shaqeynaya (Live Apps) oo kala ah ShaqoKaab iyo Tuko (Salaad & Adhkaar Soomaali) anigoo adeegsanaya HTML5, CSS3, JavaScript (ES6+), React, iyo Node.js. Waxaan mar walba ku dadaalaa koodh nadiif ah, naqshad casri ah, iyo waxbarasho joogto ah.',
+        'Intii aan ku guda jiray waxbarashadayda iyo tababarkayga, waxaan gacanta ku dhisay 3 barnaamij oo toos u shaqeynaya (Live Apps) oo kala ah ShaqoKaab, Tuko (Salaad & Adhkaar), iyo Abdihakim.Dev anigoo adeegsanaya HTML5, CSS3, JavaScript (ES6+), React 19, TypeScript, iyo Node.js. Waxaan mar walba ku dadaalaa koodh nadiif ah, naqshad casri ah, iyo waxbarasho joogto ah.',
       resumePrompt: 'Ma rabtaa inaad wax badan ka ogaato waaya-aragnimadayda?',
       resumeLink: 'Degso CV-gayga rasmiga ah.',
       currentlyLabel: 'WAQTIGAN XAADIRKA AH (CURRENTLY)',
       currentlyItems: [
-        { title: 'Dhisaya (Building)', subtitle: 'ShaqoKaab & Tuko (Salaad & Adhkaar Soomaali)' },
+        { title: 'Dhisaya (Building)', subtitle: 'ShaqoKaab, Tuko & Abdihakim.Dev' },
         { title: 'Sahaminaya (Exploring)', subtitle: 'React 19, TypeScript & Node.js' },
         { title: 'Baranaya (Learning)', subtitle: 'Software Engineering @ JUST' },
       ],
@@ -156,12 +156,12 @@ export const translations = {
       bioParagraph1:
         "I'm Abdihakim Hassan Mohamud (Eng Abdihakim Hassan), an Aspiring Software Engineering Student at Jamhuriya University of Science and Technology (JUST) in Mogadishu, Somalia. I enjoy turning ideas and real-world problems into practical digital solutions through modern web applications and clean user interfaces.",
       bioParagraph2:
-        'Throughout my studies and hands-on practice, I have built 2 live web applications — ShaqoKaab and Tuko (Salaad & Adhkaar Soomaali) — using HTML, CSS, JavaScript, React, and Node.js. I focus on writing maintainable code, mastering software engineering fundamentals, and continuously expanding my technical capabilities.',
+        'Throughout my studies and hands-on practice, I have built 3 live web applications — ShaqoKaab, Tuko (Salaad & Adhkaar), and Abdihakim.Dev — using HTML, CSS, JavaScript, React 19, TypeScript, and Node.js. I focus on writing maintainable code, mastering software engineering fundamentals, and continuously expanding my technical capabilities.',
       resumePrompt: 'Want to know more about my experience?',
       resumeLink: 'Download my resume.',
       currentlyLabel: 'CURRENTLY',
       currentlyItems: [
-        { title: 'Building', subtitle: 'ShaqoKaab & Tuko (Salaad & Adhkaar Soomaali)' },
+        { title: 'Building', subtitle: 'ShaqoKaab, Tuko & Abdihakim.Dev' },
         { title: 'Exploring', subtitle: 'React 19, TypeScript & Node.js' },
         { title: 'Learning', subtitle: 'Software Engineering @ JUST' },
       ],

@@ -347,7 +347,7 @@ export const AboutSection: React.FC<AboutSectionProps> = ({ lang, onOpenCV }) =>
                   {t.stats.projectsLabel}
                 </span>
                 <span className="text-base sm:text-lg font-extrabold text-zinc-950 dark:text-white">
-                  2 Live Apps
+                  3 Live Apps
                 </span>
               </div>
 
