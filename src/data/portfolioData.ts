@@ -5,6 +5,7 @@ import shaqokaabBrandImg from '../assets/images/project_shaqokaab_brand.jpg';
 import shaqokaabAtsImg from '../assets/images/project_shaqokaab_ats.jpg';
 import tukoPosterImg from '../assets/images/project_tuko_poster.jpg';
 import hubaalImg from '../assets/images/project_fintech_platform_1791984897116.jpg';
+import devCloudImg from '../assets/images/project_cloud_mesh_1791984895646.jpg';
 
 export const PORTFOLIO_OWNER = {
   fullName: 'Abdihakim Hassan Mohamud',
@@ -171,6 +172,53 @@ export const PROJECTS_DATA: Project[] = [
     liveAppUrl: 'https://github.com/Abdihakim-Hassan',
     demoUrl: 'https://github.com/Abdihakim-Hassan',
     githubUrl: 'https://github.com/Abdihakim-Hassan',
+  },
+  {
+    id: 'abdihakim-dev',
+    index: '04',
+    title: {
+      so: 'Abdihakim.Dev — Nidaamka Portfolio & Cloud CMS',
+      en: 'Abdihakim.Dev — Personal Portfolio OS & Cloud CMS',
+    },
+    tagline: {
+      so: 'Nidaam Full-Stack ah oo casri ah oo leh Dashboard maamul oo toos ugu xiran Google Cloud Firestore, Firebase Authentication, iyo xog-kaydin Local-First ah.',
+      en: 'Modern Full-Stack developer portfolio & CMS platform built with React 19, TypeScript, Google Cloud Firestore, Firebase Auth, and Local-First sync.',
+    },
+    category: 'web',
+    categoryLabel: {
+      so: 'Abdihakim.Dev · Live Platform',
+      en: 'Abdihakim.Dev · Live Platform',
+    },
+    stackLabel: 'REACT 19 · TYPESCRIPT · TAILWIND CSS · CLOUD FIRESTORE · FIREBASE AUTH',
+    image: devCloudImg,
+    year: '2026',
+    client: 'Self-Initiated / Abdihakim Hassan',
+    featured: true,
+    technologies: ['React', 'TypeScript', 'Tailwind CSS', 'Firebase', 'Node.js'],
+    metrics: [
+      { label: { so: 'Madasha', en: 'Platform' }, value: 'Full-Stack Portfolio OS' },
+      { label: { so: 'Database', en: 'Database' }, value: 'Google Cloud Firestore' },
+      { label: { so: 'Amniga', en: 'Security' }, value: 'Role-Based Firebase Auth' },
+    ],
+    overview: {
+      so: 'Nidaamka Abdihakim.Dev waa madal casri ah oo Full-Stack ah oo isku xiraysa portfolio-ga guud iyo Dashboard maamul oo awood badan (Full CRUD). Waxay leedahay xog-kaydin Local-First ah oo xawaare 0ms ah bixisa, iyadoo xogtu isla markiiba toos ugu xirmayso Google Cloud Firestore.',
+      en: 'Abdihakim.Dev is a production-grade personal portfolio system combining a public showcase with an executive administrative CMS. Featuring a local-first reactive architecture with zero-latency updates and bidirectional synchronization to Google Cloud Firestore.',
+    },
+    architecture: {
+      so: 'React 19, TypeScript, Tailwind CSS, Google Cloud Firestore, Firebase Authentication, iyo Local-First localStorage cache.',
+      en: 'React 19, TypeScript, Tailwind CSS, Google Cloud Firestore, Firebase Authentication, and Local-First localStorage cache.',
+    },
+    challenge: {
+      so: 'Dhisidda portfolio aan ahayn kaliya bog static ah, balse ah nidaam software ah oo dhameystiran oo maamulaha u oggolaanaya inuu mashaariicda ku daro, wax ka beddelo, kana tirtiro isagoo adeegsanaya Google Cloud Firestore ammaan ah.',
+      en: 'Architecting an engineering-first personal brand platform that goes beyond static pages into a complete software product: offering full dynamic project management, contact synchronization, and authenticated Google OAuth administration.',
+    },
+    solution: {
+      so: 'Madasha Abdihakim.Dev oo si toos ah u shaqaynaysa: Dashboard maamul oo qarsoon (/#dashboard), mashaariic toos loogu shubo Cloud Firestore, iyo fariimaha macaamiisha oo toos looga maamulo.',
+      en: 'The live Abdihakim.Dev platform: secure hash-routed owner portal (/#dashboard), real-time Firestore database synchronization, and automated bilingual Som/Eng switching.',
+    },
+    liveAppUrl: 'https://abdihakim-portfolio-1.vercel.app',
+    demoUrl: 'https://abdihakim-portfolio-1.vercel.app',
+    githubUrl: 'https://github.com/Abdihakim-Hassan/abdihakim-portfolio',
   },
 ];
 

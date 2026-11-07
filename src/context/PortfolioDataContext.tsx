@@ -251,6 +251,20 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const parsed = JSON.parse(savedV2);
         const sanitized = sanitizeProjectsList(parsed?.projects).filter((p) => !deletedSet.has(p.id));
         if (sanitized.length > 0) {
+          // Merge in any newly added baseline projects (such as 'abdihakim-dev') not in cache and not deleted
+          const existingIds = new Set(sanitized.map((p) => p.id));
+          let changed = false;
+          for (const baseProj of PROJECTS_DATA) {
+            if (!existingIds.has(baseProj.id) && !deletedSet.has(baseProj.id)) {
+              sanitized.push(baseProj);
+              changed = true;
+            }
+          }
+          if (changed) {
+            sanitized.sort((a, b) =>
+              (a.index || '').localeCompare(b.index || '', undefined, { numeric: true })
+            );
+          }
           return sanitized;
         }
       }
