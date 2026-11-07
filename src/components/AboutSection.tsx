@@ -13,6 +13,7 @@ import {
 import { Language } from '../types';
 import { translations } from '../data/translations';
 import { usePortfolioData } from '../context/PortfolioDataContext';
+import { PORTFOLIO_OWNER } from '../data/portfolioData';
 
 interface AboutSectionProps {
   lang: Language;
@@ -317,6 +318,9 @@ export const AboutSection: React.FC<AboutSectionProps> = ({ lang, onOpenCV }) =>
               <img
                 src={owner.portrait}
                 alt={owner.fullName}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = PORTFOLIO_OWNER.portrait;
+                }}
                 className="w-full h-full object-cover object-top"
               />
             </div>

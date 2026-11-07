@@ -128,6 +128,18 @@ function safeString(val: unknown, fallback = ''): string {
   return fallback;
 }
 
+function sanitizePortrait(val: unknown, fallback: string): string {
+  if (typeof val !== 'string' || !val.trim()) return fallback;
+  const s = val.trim();
+  // Valid user-uploaded custom remote URL or base64 inline data URI
+  if (s.startsWith('data:image/') || s.startsWith('https://') || s.startsWith('http://')) {
+    return s;
+  }
+  // Any stale bundled asset path from a previous build (e.g. /assets/abdihakim_... or src/...)
+  // must always fall back to the active bundled portrait import
+  return fallback;
+}
+
 function sanitizeOwnerData(raw: unknown): PortfolioOwnerData {
   if (!raw || typeof raw !== 'object') return PORTFOLIO_OWNER;
   const r = raw as Record<string, unknown>;
@@ -152,7 +164,7 @@ function sanitizeOwnerData(raw: unknown): PortfolioOwnerData {
     linkedin: safeString(r.linkedin, PORTFOLIO_OWNER.linkedin),
     tiktok: safeString(r.tiktok, PORTFOLIO_OWNER.tiktok),
     tiktokHandle: safeString(r.tiktokHandle, PORTFOLIO_OWNER.tiktokHandle),
-    portrait: safeString(r.portrait, PORTFOLIO_OWNER.portrait),
+    portrait: sanitizePortrait(r.portrait, PORTFOLIO_OWNER.portrait),
   };
 }
 

@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { PORTFOLIO_OWNER } from '../data/portfolioData';
 import {
   Github,
   Linkedin,
@@ -21,6 +22,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 }) => {
   const { owner, setIsEmailModalOpen } = usePortfolioData();
   const t = translations[lang].hero;
+  const [portraitSrc, setPortraitSrc] = useState<string>(owner.portrait || PORTFOLIO_OWNER.portrait);
+
+  useEffect(() => {
+    setPortraitSrc(owner.portrait || PORTFOLIO_OWNER.portrait);
+  }, [owner.portrait]);
 
   useEffect(() => {
     try {
@@ -81,8 +87,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         {/* Centered Cutout Portrait of Abdihakim Hassan Mohamud */}
         <div className="relative z-20 w-full max-w-[360px] sm:max-w-[540px] lg:max-w-[620px] mx-auto flex justify-center items-end px-2 sm:px-4 pointer-events-none select-none">
           <img
-            src={owner.portrait}
+            src={portraitSrc}
             alt={owner.fullName}
+            onError={() => {
+              if (portraitSrc !== PORTFOLIO_OWNER.portrait) {
+                setPortraitSrc(PORTFOLIO_OWNER.portrait);
+              }
+            }}
             className="w-full h-auto max-h-[52svh] sm:max-h-[72vh] object-contain object-bottom drop-shadow-2xl transition-all duration-300"
             fetchPriority="high"
             decoding="async"
