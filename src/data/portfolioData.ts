@@ -1,6 +1,6 @@
 import { EducationMilestone, Project, ServiceItem, SkillProgress } from '../types';
 
-import abdihakimPhoto from '../assets/images/abdihakim_real_photo_v2.jpg';
+import abdihakimPhoto from '../assets/images/abdihakim_real_transparent.png';
 import shaqokaabBrandImg from '../assets/images/project_shaqokaab_brand.jpg';
 import shaqokaabAtsImg from '../assets/images/project_shaqokaab_ats.jpg';
 import tukoPosterImg from '../assets/images/project_tuko_poster.jpg';
