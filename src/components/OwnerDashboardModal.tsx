@@ -110,6 +110,7 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [systemSpeed, setSystemSpeed] = useState('180ms');
+  const [isMigratingCloud, setIsMigratingCloud] = useState(false);
 
   // Measure genuine browser load latency
   useEffect(() => {
@@ -273,8 +274,6 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
     reader.readAsText(file);
     e.target.value = '';
   };
-
-  const [isMigratingCloud, setIsMigratingCloud] = useState(false);
 
   const handleMigrateProjectsToCloud = async () => {
     if (!window.confirm(

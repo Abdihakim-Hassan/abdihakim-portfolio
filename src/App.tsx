@@ -197,6 +197,10 @@ class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, Er
     try {
       localStorage.removeItem('abdihakim_portfolio_db_v1');
       localStorage.removeItem('abdihakim_portfolio_db_v2');
+      sessionStorage.removeItem('portfolio_dashboard_open');
+      if (window.location.hash === '#dashboard') {
+        window.location.hash = '';
+      }
     } catch {
       // ignore
     }
