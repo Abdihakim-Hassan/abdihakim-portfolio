@@ -27,6 +27,7 @@ import {
   fetchProjectsFromFirestore,
   downloadProjectsBackupFile,
   compareProjectsLocalVsCloud,
+  sanitizeProjectForFirestore,
   ProjectConflictSummary,
 } from '../services/projectService';
 
@@ -109,24 +110,114 @@ interface PortfolioContextType {
 }
 
 const STORAGE_KEYS = {
-  DB: 'abdihakim_portfolio_db_v1',
+  DB: 'abdihakim_portfolio_db_v2',
+  LEGACY_DB: 'abdihakim_portfolio_db_v1',
 };
+
+const AUTHORIZED_ADMIN_UID = 'FwmKMpvsXiRbi0mPg9Tl9Q90W4M2';
+const AUTHORIZED_ADMIN_EMAIL = 'ccakiincasan@gmail.com';
+
+function safeString(val: unknown, fallback = ''): string {
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  if (val && typeof val === 'object') {
+    const rec = val as Record<string, unknown>;
+    if (typeof rec.en === 'string') return rec.en;
+    if (typeof rec.so === 'string') return rec.so;
+  }
+  return fallback;
+}
+
+function sanitizeOwnerData(raw: unknown): PortfolioOwnerData {
+  if (!raw || typeof raw !== 'object') return PORTFOLIO_OWNER;
+  const r = raw as Record<string, unknown>;
+  const rawRole = r.role && typeof r.role === 'object' ? (r.role as Record<string, unknown>) : null;
+  return {
+    ...PORTFOLIO_OWNER,
+    fullName: safeString(r.fullName, PORTFOLIO_OWNER.fullName),
+    name: safeString(r.name, PORTFOLIO_OWNER.name),
+    shortBrand: safeString(r.shortBrand, PORTFOLIO_OWNER.shortBrand),
+    monogram: safeString(r.monogram, PORTFOLIO_OWNER.monogram),
+    role: {
+      en: rawRole ? safeString(rawRole.en, PORTFOLIO_OWNER.role.en) : safeString(r.role, PORTFOLIO_OWNER.role.en),
+      so: rawRole ? safeString(rawRole.so, PORTFOLIO_OWNER.role.so) : safeString(r.role, PORTFOLIO_OWNER.role.so),
+    },
+    university: safeString(r.university, PORTFOLIO_OWNER.university),
+    location: safeString(r.location, PORTFOLIO_OWNER.location),
+    email: safeString(r.email, PORTFOLIO_OWNER.email),
+    whatsapp: safeString(r.whatsapp, PORTFOLIO_OWNER.whatsapp),
+    whatsappLink: safeString(r.whatsappLink, PORTFOLIO_OWNER.whatsappLink),
+    github: safeString(r.github, PORTFOLIO_OWNER.github),
+    githubHandle: safeString(r.githubHandle, PORTFOLIO_OWNER.githubHandle),
+    linkedin: safeString(r.linkedin, PORTFOLIO_OWNER.linkedin),
+    tiktok: safeString(r.tiktok, PORTFOLIO_OWNER.tiktok),
+    tiktokHandle: safeString(r.tiktokHandle, PORTFOLIO_OWNER.tiktokHandle),
+    portrait: safeString(r.portrait, PORTFOLIO_OWNER.portrait),
+  };
+}
+
+function sanitizeProjectsList(rawList: unknown): Project[] {
+  if (!Array.isArray(rawList) || rawList.length === 0) return [];
+  const cleaned: Project[] = [];
+  for (const item of rawList) {
+    if (!item || typeof item !== 'object') continue;
+    try {
+      const sanitized = sanitizeProjectForFirestore(item as unknown as Project) as unknown as Project;
+      if (sanitized && typeof sanitized.id === 'string' && sanitized.id.trim()) {
+        cleaned.push(sanitized);
+      }
+    } catch {
+      // skip malformed legacy project entry
+    }
+  }
+  return cleaned;
+}
+
+function sanitizeInquiriesList(rawList: unknown): Inquiry[] {
+  if (!Array.isArray(rawList) || rawList.length === 0) return INITIAL_INQUIRIES;
+  return rawList
+    .filter((item) => item && typeof item === 'object')
+    .map((item, idx) => {
+      const r = item as Record<string, unknown>;
+      return {
+        id: safeString(r.id, `inq-${idx + 1}`),
+        name: safeString(r.name, 'Anonymous'),
+        email: safeString(r.email, ''),
+        subject: safeString(r.subject, 'Portfolio Inquiry'),
+        message: safeString(r.message, ''),
+        timestamp: safeString(r.timestamp, 'Recently'),
+        read: Boolean(r.read),
+      };
+    });
+}
 
 const PortfolioContext = createContext<PortfolioContextType | undefined>(undefined);
 
 /**
  * Checks whether an authenticated Firebase User has administrator authorization.
- * Strictly uses server-minted Firebase Custom Claims (`token.admin === true`) as the single
- * authoritative source of truth. Does not accept client-side emails or unverified records.
+ * Uses server-minted Firebase Custom Claims (`token.admin === true`) as primary check,
+ * with verified owner UID/email fallback so Google Sign-In never locks out the owner.
  */
 async function verifyAdminAuthorization(user: User): Promise<boolean> {
+  const isOwnerIdentity =
+    user.uid === AUTHORIZED_ADMIN_UID ||
+    (typeof user.email === 'string' && user.email.toLowerCase() === AUTHORIZED_ADMIN_EMAIL);
+
   try {
-    // Force refresh the token to obtain latest server-minted claims
-    const idTokenResult: IdTokenResult = await user.getIdTokenResult(true);
-    return Boolean(idTokenResult.claims && idTokenResult.claims.admin === true);
+    // Force refresh the token (with 3.5s safety timeout) to obtain latest server-minted claims
+    const idTokenResult: IdTokenResult = await Promise.race([
+      user.getIdTokenResult(true),
+      new Promise<IdTokenResult>((resolve, reject) =>
+        setTimeout(() => user.getIdTokenResult(false).then(resolve).catch(reject), 3500)
+      ),
+    ]);
+    if (idTokenResult?.claims?.admin === true) {
+      return true;
+    }
+    return isOwnerIdentity;
   } catch (err) {
-    console.error('Security verification check failed:', err);
-    return false;
+    console.warn('Token refresh warning during admin check:', err);
+    return isOwnerIdentity;
   }
 }
 
@@ -136,7 +227,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const saved = localStorage.getItem(STORAGE_KEYS.DB);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.owner) return { ...PORTFOLIO_OWNER, ...parsed.owner };
+        if (parsed?.owner) return sanitizeOwnerData(parsed.owner);
       }
     } catch (e) {
       console.warn('Failed to load owner data from cache', e);
@@ -146,15 +237,55 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [projects, setProjects] = useState<Project[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.DB);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed.projects) && parsed.projects.length > 0) {
-          return parsed.projects;
+      let deletedIds: string[] = [];
+      try {
+        const rawDeleted = localStorage.getItem('abdihakim_portfolio_deleted_ids');
+        if (rawDeleted) deletedIds = JSON.parse(rawDeleted);
+      } catch {
+        // ignore
+      }
+      const deletedSet = new Set(deletedIds);
+
+      const savedV2 = localStorage.getItem(STORAGE_KEYS.DB);
+      if (savedV2) {
+        const parsed = JSON.parse(savedV2);
+        const sanitized = sanitizeProjectsList(parsed?.projects).filter((p) => !deletedSet.has(p.id));
+        if (sanitized.length > 0) {
+          return sanitized;
+        }
+      }
+
+      // Migrate valid projects from legacy v1 cache if present, then purge v1 to prevent corrupted object crashes
+      const savedV1 = localStorage.getItem(STORAGE_KEYS.LEGACY_DB);
+      if (savedV1) {
+        localStorage.removeItem(STORAGE_KEYS.LEGACY_DB);
+        const parsedV1 = JSON.parse(savedV1);
+        const v1Projects = sanitizeProjectsList(parsedV1?.projects).filter((p) => !deletedSet.has(p.id));
+        if (v1Projects.length > 0) {
+          const map = new Map<string, Project>();
+          for (const baseProj of PROJECTS_DATA) {
+            if (!deletedSet.has(baseProj.id)) map.set(baseProj.id, baseProj);
+          }
+          for (const p of v1Projects) {
+            map.set(p.id, p);
+          }
+          const merged = Array.from(map.values()).sort((a, b) =>
+            (a.index || '').localeCompare(b.index || '', undefined, { numeric: true })
+          );
+          localStorage.setItem(
+            STORAGE_KEYS.DB,
+            JSON.stringify({ owner: PORTFOLIO_OWNER, projects: merged, inquiries: INITIAL_INQUIRIES })
+          );
+          return merged;
         }
       }
     } catch (e) {
       console.warn('Failed to load projects from cache', e);
+      try {
+        localStorage.removeItem(STORAGE_KEYS.LEGACY_DB);
+      } catch {
+        // ignore
+      }
     }
     return PROJECTS_DATA;
   });
@@ -164,8 +295,8 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const saved = localStorage.getItem(STORAGE_KEYS.DB);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed.inquiries) && parsed.inquiries.length > 0) {
-          return parsed.inquiries;
+        if (Array.isArray(parsed?.inquiries) && parsed.inquiries.length > 0) {
+          return sanitizeInquiriesList(parsed.inquiries);
         }
       }
     } catch (e) {
@@ -354,7 +485,8 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setProjectsSyncStatus('connecting');
 
     const unsubscribe = subscribeToProjects(
-      (liveProjects) => {
+      (rawLiveProjects) => {
+        const liveProjects = sanitizeProjectsList(rawLiveProjects);
         if (liveProjects && liveProjects.length > 0) {
           // Merge live cloud projects with any unmigrated local projects so partial cloud writes never wipe out local projects
           const cloudMap = new Map(liveProjects.map((p) => [p.id, p]));
@@ -399,8 +531,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             console.warn('Failed to update projects cache in localStorage', e);
           }
         } else {
-          // Cloud collection is currently empty: DO NOT auto-seed or overwrite.
-          // Maintain local cached projects and register status as idle.
+          // Cloud collection is currently empty: maintain local cached projects and register status as idle.
           setProjectsSyncStatus('idle');
         }
       },
@@ -413,6 +544,24 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     return () => unsubscribe();
   }, []);
+
+  // Automatically synchronize local/baseline projects to Cloud Firestore once admin signs in if Cloud is empty
+  const autoSeededRef = useRef(false);
+  useEffect(() => {
+    if (!isAdminLoggedIn || projectsSyncStatus !== 'idle' || autoSeededRef.current) return;
+    autoSeededRef.current = true;
+    (async () => {
+      try {
+        for (const p of latestProjectsRef.current) {
+          await saveProjectToFirestore(p);
+        }
+        setProjectsSyncStatus('synced');
+        setProjectsSyncError(null);
+      } catch (err) {
+        console.warn('[PortfolioContext] Initial cloud sync warning:', err);
+      }
+    })();
+  }, [isAdminLoggedIn, projectsSyncStatus]);
 
   // Save cached content for offline resilience
   const persistState = (newOwner: PortfolioOwnerData, newProjects: Project[], newInquiries: Inquiry[]) => {
@@ -439,6 +588,11 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 
     try {
+      try {
+        sessionStorage.setItem('portfolio_dashboard_open', 'true');
+      } catch {
+        // ignore
+      }
       // 1. Authenticate with Firebase Authentication
       const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPass);
       const user = userCredential.user;
@@ -483,11 +637,14 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   /**
    * Google Sign-In via Firebase Authentication.
-   * Identity comes from Google; administrator privileges come ONLY from the
-   * server-assigned Custom Claim (`admin === true`). No email comparison is done here.
    */
   const loginWithGoogle = async (): Promise<LoginResult> => {
     try {
+      try {
+        sessionStorage.setItem('portfolio_dashboard_open', 'true');
+      } catch {
+        // ignore
+      }
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       const userCredential = await signInWithPopup(auth, provider);
@@ -500,7 +657,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setIsAdminLoggedIn(false);
         return {
           success: false,
-          error: 'Access Denied: This account is authenticated but does not have administrator privileges.',
+          error: `Access Denied: "${user.email || 'This Google account'}" is not the administrator account (${AUTHORIZED_ADMIN_EMAIL}). Please select ${AUTHORIZED_ADMIN_EMAIL}.`,
         };
       }
 
@@ -517,7 +674,8 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       } else if (err.code === 'auth/popup-blocked') {
         errorMessage = 'Popup was blocked by the browser. Please allow popups for this site.';
       } else if (err.code === 'auth/unauthorized-domain') {
-        errorMessage = 'This domain is not authorized for Google sign-in in Firebase Authentication settings.';
+        const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'current domain';
+        errorMessage = `Domain "${currentHost}" is not in Firebase Authorized Domains yet. Add "${currentHost}" in Firebase Console -> Auth -> Settings -> Authorized domains, OR sign in with Email & Password above.`;
       } else if (err.code === 'auth/network-request-failed') {
         errorMessage = 'Network error. Please check your internet connection.';
       }
@@ -760,20 +918,17 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     try {
       const parsed = JSON.parse(jsonString);
-      if (parsed.owner) {
-        setOwner({ ...PORTFOLIO_OWNER, ...parsed.owner });
-      }
-      if (Array.isArray(parsed.projects) && parsed.projects.length > 0) {
-        setProjects(parsed.projects);
-      }
-      if (Array.isArray(parsed.inquiries)) {
-        setInquiries(parsed.inquiries);
-      }
-      persistState(
-        parsed.owner ? { ...PORTFOLIO_OWNER, ...parsed.owner } : owner,
-        Array.isArray(parsed.projects) ? parsed.projects : projects,
-        Array.isArray(parsed.inquiries) ? parsed.inquiries : inquiries
-      );
+      const nextOwner = parsed?.owner ? sanitizeOwnerData(parsed.owner) : owner;
+      const sanitizedProjects = sanitizeProjectsList(parsed?.projects);
+      const nextProjects = sanitizedProjects.length > 0 ? sanitizedProjects : projects;
+      const nextInquiries = Array.isArray(parsed?.inquiries)
+        ? sanitizeInquiriesList(parsed.inquiries)
+        : inquiries;
+
+      setOwner(nextOwner);
+      setProjects(nextProjects);
+      setInquiries(nextInquiries);
+      persistState(nextOwner, nextProjects, nextInquiries);
       return true;
     } catch (e) {
       console.error('Import failed', e);
@@ -788,6 +943,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     try {
       localStorage.removeItem(STORAGE_KEYS.DB);
+      localStorage.removeItem(STORAGE_KEYS.LEGACY_DB);
       localStorage.removeItem('abdihakim_portfolio_deleted_ids');
     } catch (e) {
       console.error(e);

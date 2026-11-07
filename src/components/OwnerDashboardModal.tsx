@@ -56,6 +56,19 @@ interface OwnerDashboardModalProps {
 type SidebarTab = 'dashboard' | 'projects' | 'profile' | 'messages' | 'database';
 type TimeFilter = '7D' | '30D' | '90D' | '1Y';
 
+function str(val: unknown, lang: Language = 'en', fallback = ''): string {
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  if (val && typeof val === 'object') {
+    const rec = val as Record<string, unknown>;
+    const primary = rec[lang];
+    if (typeof primary === 'string' && primary.trim()) return primary;
+    if (typeof rec.en === 'string' && rec.en.trim()) return rec.en;
+    if (typeof rec.so === 'string' && rec.so.trim()) return rec.so;
+  }
+  return fallback;
+}
+
 export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }) => {
   const {
     isDashboardModalOpen,
@@ -306,10 +319,10 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     return (
-      (p.title?.en || '').toLowerCase().includes(q) ||
-      (p.title?.so || '').toLowerCase().includes(q) ||
-      (p.tagline?.en || '').toLowerCase().includes(q) ||
-      (p.technologies || []).some((t) => t.toLowerCase().includes(q))
+      str(p.title, 'en').toLowerCase().includes(q) ||
+      str(p.title, 'so').toLowerCase().includes(q) ||
+      str(p.tagline, 'en').toLowerCase().includes(q) ||
+      (Array.isArray(p.technologies) ? p.technologies : []).some((t) => str(t, lang).toLowerCase().includes(q))
     );
   });
 
@@ -978,8 +991,8 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
                       100% Production
                     </span>
                   </div>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-2 truncate" title={projects.map((p) => p.title?.[lang] || p.title?.en || p.title).join(', ')}>
-                    {projects.map((p) => p.title?.[lang] || p.title?.en || p.title).join(', ')}
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-2 truncate" title={projects.map((p) => str(p.title, lang, 'Project')).join(', ')}>
+                    {projects.map((p) => str(p.title, lang, 'Project')).join(', ')}
                   </p>
                 </div>
 
@@ -1412,16 +1425,16 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
                       {/* Thumbnail & Badges */}
                       <div className="relative aspect-[16/10] overflow-hidden bg-slate-100 dark:bg-slate-800">
                         <img
-                          src={project.image}
-                          alt={project.title?.en || 'Project'}
+                          src={str(project.image, lang, '/images/project_shaqokaab_brand.jpg')}
+                          alt={str(project.title, lang, 'Project')}
                           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                         />
                         <div className="absolute top-3 left-3 flex items-center gap-1.5">
                           <span className="px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-md text-white text-[10px] font-mono font-bold">
-                            #{project.index}
+                            #{str(project.index, lang, '01')}
                           </span>
                           <span className="px-2.5 py-1 rounded-lg bg-zinc-900/80 backdrop-blur-md text-white border border-white/10 text-[10px] font-semibold uppercase tracking-wider">
-                            {project.category}
+                            {str(project.category, lang, 'web')}
                           </span>
                         </div>
                       </div>
@@ -1430,25 +1443,25 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
                       <div className="p-5 flex-1 flex flex-col justify-between">
                         <div>
                           <h4 className="text-base font-bold text-slate-900 dark:text-white line-clamp-1">
-                            {lang === 'so' ? project.title?.so : project.title?.en}
+                            {str(project.title, lang, 'Untitled Project')}
                           </h4>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                            {lang === 'so' ? project.tagline?.so : project.tagline?.en}
+                            {str(project.tagline, lang, '')}
                           </p>
 
                           {/* Tech Tags */}
                           <div className="flex flex-wrap gap-1.5 mt-3">
-                            {(project.technologies || []).slice(0, 3).map((tech) => (
+                            {(Array.isArray(project.technologies) ? project.technologies : []).slice(0, 3).map((tech, idx) => (
                               <span
-                                key={tech}
+                                key={`${str(tech, lang)}-${idx}`}
                                 className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-mono font-semibold"
                               >
-                                {tech}
+                                {str(tech, lang)}
                               </span>
                             ))}
-                            {(project.technologies || []).length > 3 && (
+                            {(Array.isArray(project.technologies) ? project.technologies : []).length > 3 && (
                               <span className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 text-[10px] font-mono">
-                                +{(project.technologies || []).length - 3}
+                                +{(Array.isArray(project.technologies) ? project.technologies : []).length - 3}
                               </span>
                             )}
                           </div>
@@ -1459,7 +1472,7 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
                           <div className="flex items-center gap-1.5">
                             {project.liveAppUrl && project.liveAppUrl !== '#' && (
                               <a
-                                href={project.liveAppUrl}
+                                href={str(project.liveAppUrl, lang)}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs transition-colors"
@@ -1484,7 +1497,7 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
 
                           <button
                             type="button"
-                            onClick={() => handleDeleteProject(project.id, project.title?.en || 'Project')}
+                            onClick={() => handleDeleteProject(project.id, str(project.title, lang, 'Project'))}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
                             title="Delete Project"
                           >
@@ -1615,16 +1628,16 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
                       >
                         <div className="relative aspect-[16/10] overflow-hidden bg-slate-100 dark:bg-slate-800">
                           <img
-                            src={project.image}
-                            alt={project.title?.en || 'Project'}
+                            src={str(project.image, lang, '/images/project_shaqokaab_brand.jpg')}
+                            alt={str(project.title, lang, 'Project')}
                             className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                           />
                           <div className="absolute top-3 left-3 flex items-center gap-1.5">
                             <span className="px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-md text-white text-[10px] font-mono font-bold">
-                              #{project.index}
+                              #{str(project.index, lang, '01')}
                             </span>
                             <span className="px-2.5 py-1 rounded-lg bg-zinc-900/90 dark:bg-zinc-800/90 border border-white/10 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-wider">
-                              {project.category}
+                              {str(project.category, lang, 'web')}
                             </span>
                           </div>
                         </div>
@@ -1632,19 +1645,19 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
                         <div className="p-5 flex-1 flex flex-col justify-between">
                           <div>
                             <h4 className="text-base font-bold text-slate-900 dark:text-white line-clamp-1">
-                              {lang === 'so' ? project.title?.so : project.title?.en}
+                              {str(project.title, lang, 'Untitled Project')}
                             </h4>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                              {lang === 'so' ? project.tagline?.so : project.tagline?.en}
+                              {str(project.tagline, lang, '')}
                             </p>
 
                             <div className="flex flex-wrap gap-1.5 mt-3">
-                              {(project.technologies || []).map((tech) => (
+                              {(Array.isArray(project.technologies) ? project.technologies : []).map((tech, idx) => (
                                 <span
-                                  key={tech}
+                                  key={`${str(tech, lang)}-${idx}`}
                                   className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-mono font-semibold"
                                 >
-                                  {tech}
+                                  {str(tech, lang)}
                                 </span>
                               ))}
                             </div>
@@ -1654,7 +1667,7 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
                             <div className="flex items-center gap-1.5">
                               {project.liveAppUrl && project.liveAppUrl !== '#' && (
                                 <a
-                                  href={project.liveAppUrl}
+                                  href={str(project.liveAppUrl, lang)}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs transition-colors"
@@ -1678,7 +1691,7 @@ export const OwnerDashboardModal: React.FC<OwnerDashboardModalProps> = ({ lang }
 
                             <button
                               type="button"
-                              onClick={() => handleDeleteProject(project.id, project.title?.en || 'Project')}
+                              onClick={() => handleDeleteProject(project.id, str(project.title, lang, 'Project'))}
                               className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
                               title="Delete Project"
                             >

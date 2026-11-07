@@ -169,10 +169,70 @@ function PortfolioMain() {
   );
 }
 
+interface ErrorBoundaryState {
+  hasError: boolean;
+  errorMsg: string;
+}
+
+class AppErrorBoundary extends React.Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, errorMsg: '' };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, errorMsg: error?.message || 'Unexpected rendering error' };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('Portfolio ErrorBoundary caught render error:', error);
+    try {
+      localStorage.removeItem('abdihakim_portfolio_db_v1');
+    } catch {
+      // ignore
+    }
+  }
+
+  handleResetAndReload = () => {
+    try {
+      localStorage.removeItem('abdihakim_portfolio_db_v1');
+      localStorage.removeItem('abdihakim_portfolio_db_v2');
+    } catch {
+      // ignore
+    }
+    window.location.reload();
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#0c0d11] text-white flex items-center justify-center p-6 font-sans">
+          <div className="max-w-md w-full rounded-2xl bg-[#13151b] border border-white/15 p-6 text-center space-y-4 shadow-2xl">
+            <h2 className="text-lg font-bold">Nidaamka dib ayaa loo cusbooneysiinayaa</h2>
+            <p className="text-xs text-zinc-400">
+              Xogtii hore ee kaydsanayd (browser cache) waa la nadiifiyay. Guji batoonka hoose si uu Dashboard-ku u furmo.
+            </p>
+            <button
+              type="button"
+              onClick={this.handleResetAndReload}
+              className="w-full py-2.5 px-4 rounded-xl bg-white text-zinc-950 font-bold text-xs uppercase tracking-wider hover:bg-zinc-200 transition-all cursor-pointer"
+            >
+              Dib u fur Dashboard-ka (Reload)
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <PortfolioProvider>
-      <PortfolioMain />
-    </PortfolioProvider>
+    <AppErrorBoundary>
+      <PortfolioProvider>
+        <PortfolioMain />
+      </PortfolioProvider>
+    </AppErrorBoundary>
   );
 }
